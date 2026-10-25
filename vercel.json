@@ -1,0 +1,9 @@
+{
+  "outputDirectory": "public",
+  "functions": {
+    "api/room.js": {
+      "maxDuration": 10,
+      "includeFiles": "lib/**"
+    }
+  }
+}
