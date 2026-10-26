@@ -8,7 +8,8 @@
      GET  /api/room?code=&token=&since=N        -> polling kotak surat: {peer, msgs, n}
      POST /api/room {action: create|join|send|leave, ...}
 
-   Redis:  room:KODE (host) · guest:KODE (tamu, SET NX → hanya satu) · mb:KODE:h / mb:KODE:g (kotak surat, list) */
+   Peran: h = host (P1) · g = tamu (P2) · m = Room Master (hanya menonton, tersambung ke host).
+   Redis:  room:KODE (host) · guest:KODE / master:KODE (SET NX → hanya satu) · mb:KODE:<dari><ke> (kotak surat per pasangan: hg, gh, hm, mh) */
 const crypto = require('crypto');
 const { getStore } = require('../lib/store.js');
 
@@ -29,7 +30,7 @@ const cleanName = (s, fb) => {
 };
 const normCode = c => { c = String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (c.length !== 5) throw fail(400, 'Kode ruangan harus 5 karakter.'); return c; };
 const parse = s => { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } };
-const K = { room: c => 'room:' + c, guest: c => 'guest:' + c, mb: (c, r) => 'mb:' + c + ':' + r };
+const K = { room: c => 'room:' + c, guest: c => 'guest:' + c, master: c => 'master:' + c, mb: (c, link) => 'mb:' + c + ':' + link };
 
 function iceServers() {
   const raw = process.env.ICE_SERVERS;           // JSON array, mis. [{"urls":"turn:host:3478","username":"u","credential":"p"}]
@@ -39,15 +40,16 @@ function iceServers() {
 
 /* Identifikasi pemanggil → 'h' (host) / 'g' (tamu). Mengembalikan {role, room, guest}. */
 async function auth(code, token) {
-  const r = await getStore().pipeline([['GET', K.room(code)], ['GET', K.guest(code)]]);
+  const r = await getStore().pipeline([['GET', K.room(code)], ['GET', K.guest(code)], ['GET', K.master(code)]]);
   const room = parse(r[0]);
   if (!room) throw fail(404, 'Ruangan tidak ditemukan atau sudah kedaluwarsa.', { gone: true });
-  const guest = parse(r[1]);
+  const guest = parse(r[1]), master = parse(r[2]);
   let role = null;
   if (token && room.host.token === token) role = 'h';
   else if (token && guest && guest.token === token) role = 'g';
+  else if (token && master && master.token === token) role = 'm';
   if (!role) throw fail(401, 'Sesi tidak valid. Gabung ulang ke ruangan.', { gone: true });
-  return { role, room, guest };
+  return { role, room, guest, master };
 }
 
 async function actCreate(b) {
@@ -62,25 +64,27 @@ async function actCreate(b) {
 }
 
 async function actJoin(b) {
-  const code = normCode(b.code), store = getStore();
-  const r = await store.pipeline([['GET', K.room(code)], ['GET', K.guest(code)]]);
+  const code = normCode(b.code), store = getStore(), asMaster = b.as === 'master', slot = asMaster ? K.master(code) : K.guest(code);
+  const r = await store.pipeline([['GET', K.room(code)], ['GET', slot]]);
   const room = parse(r[0]);
   if (!room) throw fail(404, 'Ruangan tidak ditemukan atau sudah kedaluwarsa.');
-  const cur = parse(r[1]);
-  if (b.token && cur && cur.token === b.token) return { code, token: cur.token, role: 'g', name: cur.name, hostName: room.host.name };   // sambung ulang
-  const name = cleanName(b.name, 'Pemain 2'), token = rid(12);
-  const ok = await store.cmd(['SET', K.guest(code), JSON.stringify({ token, name }), 'NX', 'EX', TTL]);
-  if (ok !== 'OK') throw fail(409, 'Ruangan sudah penuh (2 pemain).');
-  await store.pipeline([['DEL', K.mb(code, 'g')], ['RPUSH', K.mb(code, 'h'), JSON.stringify({ t: 'join' })], ['EXPIRE', K.mb(code, 'h'), TTL]]);
-  return { code, token, role: 'g', name, hostName: room.host.name };
+  const cur = parse(r[1]), role = asMaster ? 'm' : 'g';
+  if (b.token && cur && cur.token === b.token) return { code, token: cur.token, role, name: cur.name, hostName: room.host.name };   // sambung ulang
+  const name = cleanName(b.name, asMaster ? 'Room Master' : 'Pemain 2'), token = rid(12);
+  const ok = await store.cmd(['SET', slot, JSON.stringify({ token, name }), 'NX', 'EX', TTL]);
+  if (ok !== 'OK') throw fail(409, asMaster ? 'Room Master sudah ada di ruangan ini.' : 'Ruangan sudah penuh (2 pemain).');
+  const base = await store.cmd(['LLEN', K.mb(code, asMaster ? 'hm' : 'hg')]);     // pesan lama (sesi sebelumnya) dilewati klien baru lewat 'base'
+  return { code, token, role, name, hostName: room.host.name, base: base || 0 };
 }
 
 async function actState(q) {
   const code = normCode(q.code), token = String(q.token || '');
-  const { role, room, guest } = await auth(code, token);
+  const { role, room, guest, master } = await auth(code, token);
   const since = Math.max(0, Math.floor(Number(q.since) || 0));
-  const msgs = await getStore().cmd(['LRANGE', K.mb(code, role), since, -1]);
-  const peer = role === 'h' ? { joined: !!guest, name: guest ? guest.name : '' } : { joined: true, name: room.host.name };
+  const peerRole = role === 'h' ? (q.peer === 'm' ? 'm' : 'g') : 'h';        // host punya dua pasangan; yang lain hanya host
+  const msgs = await getStore().cmd(['LRANGE', K.mb(code, peerRole + role), since, -1]);
+  const who = peerRole === 'g' ? guest : (peerRole === 'm' ? master : room.host);
+  const peer = { joined: !!who, name: who ? (who.name || '') : '' };
   return { peer, msgs: (msgs || []).map(parse).filter(Boolean), n: since + (msgs || []).length };
 }
 
@@ -88,7 +92,7 @@ async function actSend(b) {
   const code = normCode(b.code), { role } = await auth(code, String(b.token || ''));
   const list = Array.isArray(b.msgs) ? b.msgs.slice(0, MAX_BATCH) : [];
   if (!list.length) return {};
-  const to = role === 'h' ? 'g' : 'h', key = K.mb(code, to), store = getStore();
+  const to = role === 'h' ? (b.to === 'm' ? 'm' : 'g') : 'h', key = K.mb(code, role + to), store = getStore();
   const strs = [];
   for (const m of list) {
     const s = typeof m === 'string' ? m : JSON.stringify(m);
@@ -103,10 +107,12 @@ async function actSend(b) {
 async function actLeave(b) {
   const code = normCode(b.code), store = getStore();
   let a; try { a = await auth(code, String(b.token || '')); } catch (e) { return {}; }
-  const to = a.role === 'h' ? 'g' : 'h';
-  const cmds = [['RPUSH', K.mb(code, to), JSON.stringify({ t: 'bye' })], ['EXPIRE', K.mb(code, to), 600]];
-  if (a.role === 'h') cmds.push(['DEL', K.room(code), K.guest(code)]);      // host pergi = ruangan ditutup
-  else cmds.push(['DEL', K.guest(code)]);                                    // tamu pergi = kursi kosong lagi
+  const bye = JSON.stringify({ t: 'bye' }), cmds = [];
+  if (a.role === 'h') {                                  // host pergi = ruangan ditutup untuk semua
+    cmds.push(['RPUSH', K.mb(code, 'hg'), bye], ['EXPIRE', K.mb(code, 'hg'), 600], ['RPUSH', K.mb(code, 'hm'), bye], ['EXPIRE', K.mb(code, 'hm'), 600],
+              ['DEL', K.room(code), K.guest(code), K.master(code)]);
+  } else if (a.role === 'g') cmds.push(['RPUSH', K.mb(code, 'gh'), bye], ['EXPIRE', K.mb(code, 'gh'), 600], ['DEL', K.guest(code)]);       // kursi kosong lagi
+  else cmds.push(['RPUSH', K.mb(code, 'mh'), bye], ['EXPIRE', K.mb(code, 'mh'), 600], ['DEL', K.master(code)]);                              // kursi Room Master kosong lagi
   await store.pipeline(cmds);
   return {};
 }

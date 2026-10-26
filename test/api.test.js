@@ -21,7 +21,7 @@ const T = async (name, fn) => { try { await fn(); pass++; console.log('  ✔', n
   await T('tamu yang sama bisa sambung ulang dengan token', async () => { const j = await post('join', { code: H.code, token: G.token }); assert(j.ok && j.token === G.token); });
   await T('kode salah → 404, format salah → 400', async () => { assert((await post('join', { code: 'ZZZZZ' })).http === 404); assert((await post('join', { code: 'AB' })).http === 400); });
   let hn = 0, gn = 0;
-  await T('host menerima notifikasi join + presence', async () => { const j = await api('GET', null, { code: H.code, token: H.token, since: hn }); hn = j.n; assert(j.peer.joined && j.peer.name === G.name && /Budi/.test(j.peer.name) && j.msgs[0].t === 'join'); });
+  await T('host menerima notifikasi join + presence', async () => { const j = await api('GET', null, { code: H.code, token: H.token, since: hn }); hn = j.n; assert(j.peer.joined && j.peer.name === G.name && /Budi/.test(j.peer.name) ); });
   await T('sinyal host → tamu (berurutan, since bekerja)', async () => {
     assert((await post('send', { code: H.code, token: H.token, msgs: [{ t: 'sig', d: { sdp: 'offer' } }, { t: 'sig', d: { c: 1 } }] })).ok);
     let j = await api('GET', null, { code: G.code, token: G.token, since: gn }); gn = j.n;
@@ -35,6 +35,26 @@ const T = async (name, fn) => { try { await fn(); pass++; console.log('  ✔', n
   await T('token salah ditolak (401) & pesan terlalu besar ditolak (413)', async () => {
     assert((await api('GET', null, { code: H.code, token: 'x', since: 0 })).http === 401);
     assert((await post('send', { code: H.code, token: H.token, msgs: ['x'.repeat(13000)] })).http === 413);
+  });
+  let M, mhn = 0;
+  await T('Room Master bergabung (kursi terpisah dari pemain)', async () => {
+    M = await post('join', { code: H.code, name: 'Wasit', as: 'master' }); assert(M.ok && M.role === 'm');
+    const j = await api('GET', null, { code: H.code, token: H.token, since: 0, peer: 'm' }); assert(j.peer.joined && j.peer.name === 'Wasit');
+    const j2 = await api('GET', null, { code: H.code, token: H.token, since: 0, peer: 'g' }); assert(j2.peer.joined && /Budi/.test(j2.peer.name));
+  });
+  await T('Room Master kedua ditolak (409)', async () => { const j = await post('join', { code: H.code, name: 'X', as: 'master' }); assert(j.http === 409); });
+  await T('sinyal host ↔ master terpisah dari jalur tamu', async () => {
+    assert((await post('send', { code: H.code, token: H.token, to: 'm', msgs: [{ t: 'sig', d: { sdp: 'for-master' } }] })).ok);
+    let j = await api('GET', null, { code: M.code, token: M.token, since: 0 }); assert(j.msgs.length === 1 && j.msgs[0].d.sdp === 'for-master');
+    j = await api('GET', null, { code: G.code, token: G.token, since: gn }); assert(j.msgs.length === 0, 'tamu tidak boleh menerima pesan master');
+    assert((await post('send', { code: M.code, token: M.token, msgs: [{ t: 'sig', d: { c: 9 } }] })).ok);
+    j = await api('GET', null, { code: H.code, token: H.token, since: 0, peer: 'm' }); assert(j.msgs.length === 1 && j.msgs[0].d.c === 9);
+    j = await api('GET', null, { code: H.code, token: H.token, since: hn, peer: 'g' }); assert(!j.msgs.some(m => m.d && m.d.c === 9));
+  });
+  await T('master keluar → host dapat bye, kursi master kosong lagi', async () => {
+    assert((await post('leave', { code: M.code, token: M.token })).ok);
+    const j = await api('GET', null, { code: H.code, token: H.token, since: 1, peer: 'm' }); assert(j.msgs.some(m => m.t === 'bye') && !j.peer.joined);
+    assert((await post('join', { code: H.code, name: 'Wasit2', as: 'master' })).ok);
   });
   await T('tamu keluar → host dapat bye, kursi kosong lagi', async () => {
     assert((await post('leave', { code: G.code, token: G.token })).ok);

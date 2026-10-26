@@ -533,6 +533,11 @@ html.online.touch .hitfx{width:30%}
 html.online.touch #round-banner{top:30%}
 @media (max-height:380px){html.online.touch .pc-meta{display:none}}
 
+#online .ol-seats:nth-of-type(2){margin-top:0}
+
+html.spec #otouch,html.spec .mpanel,html.spec #btn-next,html.spec #btn-rematch,html.spec #btn-pause-rematch{display:none !important}
+.ol-seat.rm{border-color:rgba(255,201,77,.6)}
+.ol-seats .ol-seat.rm{flex:1}
 html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
 </style>
 </head>
@@ -661,6 +666,7 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
       <li>Koneksi dibuat <b>langsung antar-perangkat</b> (P2P). Ping tampil di kiri bawah. Bila koneksi langsung gagal, game memakai relay lewat server (lebih lambat).</li>
       <li>HP: <b>geser di sisi kiri layar</b> (joystick muncul di bawah ibu jari), tombol <b>BOM</b> dan <b>SOAL</b> di kanan. Ukuran &amp; mode joystick ada di Settings. Mode layar penuh sangat disarankan.</li>
       <li>PC: WASD atau panah, Spasi/Enter = bom, Q = soal, 1–4 = jawab.</li>
+      <li><b>Room Master</b>: satu orang ketiga yang hanya <b>menonton</b> P1 vs P2. Masuk lewat tombol <b>Masuk sebagai Room Master</b> dengan kode ruangan (atau tautan <b>Tautan Room Master</b> dari host). Ia tersambung langsung ke host dan tidak memengaruhi pertandingan.</li>
     </ul>
     <h3>Kontrol lokal (satu perangkat)</h3>
     <table>
@@ -783,13 +789,15 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
       <div class="ol-row"><button id="ol-create" class="btn" type="button">Buat Ruangan</button></div>
       <div class="ol-or">atau gabung dengan kode</div>
       <div class="ol-row"><input id="ol-code" class="ol-input" maxlength="5" placeholder="KODE" autocapitalize="characters" autocomplete="off" inputmode="text"><button id="ol-join" class="btn alt" type="button">Gabung</button></div>
+      <div class="ol-row"><button id="ol-watch" class="btn alt" type="button">Masuk sebagai Room Master (menonton)</button></div>
     </div>
     <div id="ol-room" class="hidden">
       <div class="ol-sub">Kode ruangan</div>
       <div class="ol-code" id="ol-room-code">-----</div>
       <div class="ol-seats"><div class="ol-seat p1" id="ol-seat1"></div><div class="ol-seat p2 wait" id="ol-seat2"></div></div>
+      <div class="ol-seats"><div class="ol-seat rm wait" id="ol-seat3"></div></div>
       <div class="ol-stat" id="ol-stat"></div>
-      <div class="ol-actions"><button id="ol-copy" class="btn alt" type="button">Salin Tautan</button></div>
+      <div class="ol-actions"><button id="ol-copy" class="btn alt" type="button">Salin Tautan</button><button id="ol-copy-m" class="btn alt" type="button">Tautan Room Master</button></div>
       <div class="ol-actions"><button id="ol-go" class="btn" type="button" disabled>MULAI PERTANDINGAN</button></div>
       <div class="ol-actions"><button id="ol-leave" class="btn alt" type="button">Keluar Ruangan</button></div>
     </div>
@@ -3350,6 +3358,7 @@ class NetSession {
     this.reset();
   }
   reset() {
+    this.peerRole = 'h'; this.idle = 450;
     this.code = null; this.token = null; this.role = null; this.name = ''; this.peerName = ''; this.peerJoined = false;
     this.since = 0; this.pollTimer = 0; this.stopped = true; this.failCount = 0;
     this.pc = null; this.chR = null; this.chU = null; this.pendingCands = []; this.remoteSet = false; this.rtcStarted = false;
@@ -3380,14 +3389,18 @@ class NetSession {
   /* ---------- ruangan ---------- */
   async create(name) {
     const j = await this.call('POST', { action: 'create', name: name });
-    this.role = 'h'; this.code = j.code; this.token = j.token; this.name = j.name; this.begin(); return j;
+    this.role = 'h'; this.peerRole = 'g'; this.code = j.code; this.token = j.token; this.name = j.name; this.begin(); return j;
   }
-  async join(code, name) {
-    const j = await this.call('POST', { action: 'join', code: code, name: name });
-    this.role = 'g'; this.code = j.code; this.token = j.token; this.name = j.name; this.peerName = j.hostName; this.begin(); return j;
+  /** Host: pasangan koneksi kedua ke Room Master (memakai sesi host yang sama). */
+  attachMaster(code, token, name, since) {
+    this.role = 'h'; this.peerRole = 'm'; this.code = code; this.token = token; this.name = name; this.idle = 1500; this.begin(since || 0);
   }
-  begin() {
-    this.stopped = false; this.closed = false; this.since = 0;
+  async join(code, name, asMaster) {
+    const j = await this.call('POST', { action: 'join', code: code, name: name, as: asMaster ? 'master' : 'player' });
+    this.role = j.role; this.peerRole = 'h'; this.code = j.code; this.token = j.token; this.name = j.name; this.peerName = j.hostName; this.begin(j.base || 0); return j;
+  }
+  begin(since) {
+    this.stopped = false; this.closed = false; this.since = since || 0;
     this.iceReady = this.call('GET', null, { action: 'ice' }).then((j) => { this.ice = j.iceServers; }).catch(() => { this.ice = [{ urls: 'stun:stun.l.google.com:19302' }]; });
     this.poll();
   }
@@ -3396,7 +3409,7 @@ class NetSession {
   async poll() {
     if (this.stopped) return;
     try {
-      const j = await this.call('GET', null, { code: this.code, token: this.token, since: this.since });
+      const j = await this.call('GET', null, { code: this.code, token: this.token, since: this.since, peer: this.peerRole });
       this.since = j.n; this.failCount = 0;
       if (j.peer) await this.onPeer(j.peer);
       for (let i = 0; i < j.msgs.length; i++) await this.onMail(j.msgs[i]);
@@ -3405,7 +3418,7 @@ class NetSession {
       if (++this.failCount >= 25) { this.close('Server tidak dapat dihubungi.'); return; }
     }
     if (this.stopped) return;
-    const delay = this.relay && !this.p2p ? 100 : (this.p2p ? 3500 : 450);
+    const delay = this.relay && !this.p2p ? 100 : (this.p2p ? 3500 : (this.peerJoined ? 450 : this.idle));
     this.pollTimer = setTimeout(() => this.poll(), delay);
   }
   async onPeer(p) {
@@ -3485,7 +3498,7 @@ class NetSession {
     this.sigTimer = setTimeout(() => {
       this.sigTimer = 0;
       const msgs = this.sigQ.splice(0);
-      if (msgs.length && !this.stopped) this.call('POST', { action: 'send', code: this.code, token: this.token, msgs: msgs }).catch(() => { });
+      if (msgs.length && !this.stopped) this.call('POST', { action: 'send', code: this.code, token: this.token, to: this.peerRole, msgs: msgs }).catch(() => { });
     }, 60);
   }
   bind() {
@@ -3552,7 +3565,7 @@ class NetSession {
     this.latestU = {};
     if (!out.length) return;
     this.flushing = true;
-    try { await this.call('POST', { action: 'send', code: this.code, token: this.token, msgs: [{ t: 'rl', d: out }] }); }
+    try { await this.call('POST', { action: 'send', code: this.code, token: this.token, to: this.peerRole, msgs: [{ t: 'rl', d: out }] }); }
     catch (e) { if (e.gone) { this.flushing = false; this.close('Ruangan ditutup.'); return; } }
     this.flushing = false;
     if (this.relayQ.length || Object.keys(this.latestU).length) this.armFlush();
@@ -3717,31 +3730,37 @@ class OnlineTouch {
    • Lawan digambar dengan interpolasi + ekstrapolasi singkat dari paket posisi 30×/dtk.
    ===================================================================== */
 class OnlineController {
+  static get FWD() { return { p: 1, w: 1, start: 1, bomb: 1, boom: 1, drop: 1, pick: 1, pdel: 1, dmg: 1, over: 1 }; }
   constructor(app) {
     this.app = app; this.net = null; this.active = false; this.isHost = false; this.me = 0;
-    this.rem = { has: false, tx: 0, tz: 0, ty: 0, vx: 0, vz: 0, lt: 0, moving: false };
+    const mk = () => ({ has: false, tx: 0, tz: 0, ty: 0, vx: 0, vz: 0, lt: 0, moving: false });
+    this.rems = [mk(), mk()];            // keadaan interpolasi per pemain (pemain biasa: hanya lawan; Room Master: keduanya)
+    this.spectator = false; this.netM = null; this.masterName = ''; this.info = { nm: ['', ''], master: '' };
     this.sendAcc = 0; this.worldAcc = 0; this.wSeq = 0; this.lastW = -1;
     this.pendingNext = false; this.pendingRematch = false; this.shieldIgnore = 0; this.waitingReq = false;
     const $ = (id) => document.getElementById(id);
     this.el = {
       start: $('ol-start'), room: $('ol-room'), name: $('ol-name'), code: $('ol-code'), create: $('ol-create'), join: $('ol-join'),
       roomCode: $('ol-room-code'), copy: $('ol-copy'), seat1: $('ol-seat1'), seat2: $('ol-seat2'), stat: $('ol-stat'), go: $('ol-go'),
-      leave: $('ol-leave'), close: $('ol-close'), err: $('ol-err'), badge: $('net-badge'), openBtn: $('btn-online')
+      leave: $('ol-leave'), close: $('ol-close'), watch: $('ol-watch'), seat3: $('ol-seat3'), copyM: $('ol-copy-m'), err: $('ol-err'), badge: $('net-badge'), openBtn: $('btn-online')
     };
     try { const n = window.localStorage.getItem('numberbomber.name'); if (n) this.el.name.value = n; } catch (e) { /* abaikan */ }
     const click = (el, fn) => el.addEventListener('click', (e) => { e.currentTarget.blur(); if (app.ui.h.onUiClick) app.ui.h.onUiClick(); fn(); });
     click(this.el.openBtn, () => { app.goFullscreen(true); this.open(); });
     click(this.el.create, () => this.create());
-    click(this.el.join, () => this.join());
-    click(this.el.copy, () => this.copyLink());
+    click(this.el.join, () => this.join(false));
+    click(this.el.copy, () => this.copyLink(false));
+    click(this.el.copyM, () => this.copyLink(true));
+    click(this.el.watch, () => this.join(true));
     click(this.el.go, () => this.hostStart());
     click(this.el.leave, () => this.leave(true));
     click(this.el.close, () => app.ui.closeModals());
     this.el.code.addEventListener('input', () => { this.el.code.value = this.el.code.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5); });
     this.el.name.addEventListener('keydown', (e) => { e.stopPropagation(); });     // ketik nama tidak memicu tombol game
-    this.el.code.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') this.join(); });
+    this.el.code.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') this.join(false); });
     window.addEventListener('pagehide', () => { if (this.net) this.net.leave(); });
     let q = ''; try { q = new URLSearchParams(location.search).get('room') || ''; } catch (e) { /* abaikan */ }
+    this.autoMaster = false; try { this.autoMaster = new URLSearchParams(location.search).get('role') === 'master'; } catch (e) { /* abaikan */ }
     this.autoCode = q.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
     if (this.autoCode.length === 5) this.el.code.value = this.autoCode; else this.autoCode = '';
   }
@@ -3751,7 +3770,7 @@ class OnlineController {
   autoOpen() {                       // dipanggil setelah game siap: tautan ?room=KODE langsung membuka lobi
     if (!this.autoCode) return;
     this.open();
-    if (this.el.name.value.trim()) this.join(); else this.el.name.focus();
+    if (this.el.name.value.trim()) this.join(this.autoMaster); else this.el.name.focus();
   }
   readName() {
     const n = this.el.name.value.replace(/[<>&"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14);
@@ -3759,11 +3778,11 @@ class OnlineController {
     return n;
   }
   err(msg) { this.el.err.textContent = msg || ''; if (msg) this.el.err.classList.remove('hidden'); else this.el.err.classList.add('hidden'); }
-  busy(b) { this.el.create.disabled = this.el.join.disabled = !!b; }
+  busy(b) { this.el.create.disabled = this.el.join.disabled = this.el.watch.disabled = !!b; }
   makeNet() {
     const self = this;
     return new NetSession({
-      onPeer: (joined, name) => { if (!joined) { self.render(); return; } self.render(); },
+      onPeer: () => { self.broadcastInfo(); self.render(); },
       onReady: (mode) => self.onReady(mode),
       onStatus: (mode, rtt) => self.onStatus(mode, rtt),
       onMessage: (m) => self.onMessage(m),
@@ -3774,45 +3793,53 @@ class OnlineController {
     const name = this.readName(); this.err('');
     if (!name) { this.err('Isi nama kamu dulu.'); this.el.name.focus(); return; }
     this.busy(true);
-    try { this.net = this.makeNet(); await this.net.create(name); this.isHost = true; this.me = 0; }
+    try { this.net = this.makeNet(); await this.net.create(name); this.isHost = true; this.me = 0; this.spectator = false; this.openMasterLink(); }
     catch (e) { this.net = null; this.err(e.message); }
     this.busy(false); this.render();
   }
-  async join() {
+  async join(asMaster) {
     const name = this.readName(), code = this.el.code.value; this.err('');
     if (!name) { this.err('Isi nama kamu dulu.'); this.el.name.focus(); return; }
     if (code.length !== 5) { this.err('Kode ruangan harus 5 karakter.'); this.el.code.focus(); return; }
     this.busy(true);
-    try { this.net = this.makeNet(); await this.net.join(code, name); this.isHost = false; this.me = 1; }
+    try { this.net = this.makeNet(); await this.net.join(code, name, !!asMaster); this.isHost = false; this.spectator = !!asMaster; this.me = asMaster ? -1 : 1; }
     catch (e) { this.net = null; this.err(e.message); }
-    this.autoCode = '';
+    this.autoCode = ''; this.autoMaster = false;
     this.busy(false); this.render();
   }
   render() {
     const e = this.el, n = this.net, show = (el, on) => { if (on) el.classList.remove('hidden'); else el.classList.add('hidden'); };
     show(e.start, !n); show(e.room, !!n);
     if (!n) return;
+    const spec = this.spectator, host = this.isHost;
     e.roomCode.textContent = n.code;
-    const mine = n.name + ' (kamu)', other = n.peerJoined ? n.peerName : 'Menunggu lawan…';
-    e.seat1.innerHTML = '<small>P1 · Crimson</small>'; e.seat2.innerHTML = '<small>P2 · Azure</small>';
-    const s1 = document.createElement('span'), s2 = document.createElement('span');
-    s1.textContent = this.isHost ? mine : other; s2.textContent = this.isHost ? other : mine;     // textContent: nama pemain tidak bisa menyisipkan HTML
-    e.seat1.appendChild(s1); e.seat2.appendChild(s2);
-    e.seat1.className = 'ol-seat p1' + ((this.isHost || n.peerJoined) ? '' : ' wait'); e.seat2.className = 'ol-seat p2' + ((!this.isHost || n.peerJoined) ? '' : ' wait');
+    const hostName = host ? n.name : n.peerName, guestName = host ? (n.peerJoined ? n.peerName : '') : (spec ? (this.info.nm[1] || '') : n.name);
+    const masterName = host ? this.masterName : (spec ? n.name : (this.info.master || ''));
+    const fill = (el, cls, label, name, you) => {
+      el.innerHTML = '<small>' + label + '</small>';
+      const sp = document.createElement('span'); sp.textContent = name ? name + (you ? ' (kamu)' : '') : 'Menunggu…';     // textContent: nama pemain tidak bisa menyisipkan HTML
+      el.appendChild(sp); el.className = 'ol-seat ' + cls + (name ? '' : ' wait');
+    };
+    fill(e.seat1, 'p1', 'P1 · Crimson', hostName, host);
+    fill(e.seat2, 'p2', 'P2 · Azure', guestName, !host && !spec);
+    fill(e.seat3, 'rm', 'Room Master (menonton)', masterName, spec);
     let msg, cls = '';
-    if (!n.peerJoined) msg = 'Bagikan kode atau tautan ke temanmu.';
+    if (spec) {
+      if (!n.ready) msg = 'Menghubungkan ke host…';
+      else { msg = (GameState.is(GameState.MENU) ? 'Terhubung ✔ · menunggu host memulai · ' : 'Terhubung ✔ · ') + (n.mode === 'p2p' ? 'langsung' : 'relay') + ' · ' + Math.round(n.rtt || 0) + ' ms'; cls = 'ok'; }
+    } else if (!n.peerJoined) msg = 'Bagikan kode atau tautan ke temanmu.';
     else if (!n.ready) msg = 'Menghubungkan langsung ke lawan…';
     else if (n.mode === 'p2p') { msg = 'Terhubung langsung ✔ · ping ' + Math.round(n.rtt || 0) + ' ms'; cls = 'ok'; }
-    else { msg = 'Terhubung lewat relay (lebih lambat). Koneksi langsung gagal.'; cls = ''; }
+    else { msg = 'Terhubung lewat relay (lebih lambat). Koneksi langsung gagal.'; }
     e.stat.textContent = msg; e.stat.className = 'ol-stat ' + cls;
-    e.copy.classList.toggle('hidden', !this.isHost && false);
-    e.go.disabled = !(n.ready && this.isHost && this.app.ready);
-    e.go.textContent = this.isHost ? (n.ready ? 'MULAI PERTANDINGAN' : 'Menunggu lawan…') : (n.ready ? 'Menunggu host memulai…' : 'Menghubungkan…');
+    show(e.go, !spec); show(e.copyM, host); show(e.copy, !spec);
+    e.go.disabled = !(n.ready && host && this.app.ready);
+    e.go.textContent = host ? (n.ready ? 'MULAI PERTANDINGAN' : 'Menunggu lawan…') : (n.ready ? 'Menunggu host memulai…' : 'Menghubungkan…');
   }
-  copyLink() {
+  copyLink(master) {
     const n = this.net; if (!n) return;
-    const url = location.origin + location.pathname + '?room=' + n.code, btn = this.el.copy;
-    const done = (ok) => { btn.textContent = ok ? 'Tersalin ✔' : 'Salin manual: ' + url; setTimeout(() => { btn.textContent = 'Salin Tautan'; }, 2200); };
+    const url = location.origin + location.pathname + '?room=' + n.code + (master ? '&role=master' : ''), btn = master ? this.el.copyM : this.el.copy, label = master ? 'Tautan Room Master' : 'Salin Tautan';
+    const done = (ok) => { btn.textContent = ok ? 'Tersalin ✔' : 'Salin manual: ' + url; setTimeout(() => { btn.textContent = label; }, 2200); };
     if (navigator.share && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
       navigator.share({ title: 'NUMBER BOMBER', text: 'Duel bom matematika! Kode ruangan: ' + n.code, url: url }).catch(() => { });
       return;
@@ -3831,6 +3858,8 @@ class OnlineController {
   /** Keluar dengan sengaja (tombol Keluar / Menu). */
   leave(fromLobby) {
     const n = this.net;
+    if (this.netM) { const m = this.netM; this.netM = null; m.teardown(); }
+    this.masterName = ''; this.info = { nm: ['', ''], master: '' };
     if (n) { n.leave(); this.net = null; }
     const was = this.active;
     this.active = false; this.exitMode();
@@ -3838,9 +3867,42 @@ class OnlineController {
     this.err(''); this.render();
   }
 
+  /* ---------------- Room Master (penonton) ---------------- */
+  /** Host: buka pasangan koneksi kedua yang menunggu Room Master. since: lewati pesan sesi master sebelumnya. */
+  openMasterLink(since) {
+    if (!this.net || this.netM || !this.isHost) return;
+    const self = this;
+    const m = new NetSession({
+      onPeer: (joined, name) => { self.masterName = joined ? name : ''; self.broadcastInfo(); self.render(); },
+      onReady: () => { self.broadcastInfo(); self.sendSync(); self.render(); },
+      onMessage: () => { },                        // Room Master hanya menonton: pesan darinya diabaikan
+      onStatus: () => { },
+      onClose: () => {
+        const keep = m.since;
+        if (self.netM !== m) return;
+        self.netM = null; self.masterName = ''; self.broadcastInfo(); self.render();
+        if (self.net && !self.net.closed) setTimeout(() => self.openMasterLink(keep), 600);      // kursi Room Master dibuka lagi
+      }
+    });
+    this.netM = m; m.attachMaster(this.net.code, this.net.token, this.net.name, since || 0);
+  }
+  broadcastInfo() {
+    if (!this.isHost || !this.net) return;
+    const n = this.net, info = { t: 'info', nm: [n.name, n.peerJoined ? n.peerName : ''], master: this.masterName };
+    this.info = info;
+    [n, this.netM].forEach((x) => { if (x && x.ready) x.send('r', info); });
+  }
+  /** Room Master yang masuk di tengah pertandingan: kirim keadaan arena saat ini. */
+  sendSync() {
+    const a = this.app, S = GameState, m = a.match;
+    if (!this.netM || !this.netM.ready || !this.active || S.is(S.MENU)) return;
+    this.netM.send('r', { t: 'start', late: 1, ph: S.current, g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })),
+      nm: [this.net.name, this.net.peerName], tl: m.timeLeft, pu: Array.from(a.powerups.items.values()).map((it) => [it.c, it.r, it.type]) });
+  }
+
   /* ---------------- Mode online ---------------- */
   onReady(mode) {
-    this.active = true; this.enterMode(); this.render();
+    this.active = true; this.enterMode(); this.broadcastInfo(); this.render();
     if (this.net) this.onStatus(mode, this.net.rtt);
   }
   onStatus(mode, rtt) {
@@ -3851,32 +3913,36 @@ class OnlineController {
   }
   enterMode() {
     const a = this.app, h = document.documentElement, n = this.net;
-    h.classList.add('online'); h.classList.toggle('me0', this.me === 0); h.classList.toggle('me1', this.me === 1);
+    h.classList.add('online'); h.classList.toggle('me0', this.me === 0); h.classList.toggle('me1', this.me === 1); h.classList.toggle('spec', this.spectator);
     a.me = this.me; a.input.remapAll(this.me); a.otouch.setMe(this.me);
-    a.ui.names = this.isHost ? [n.name, n.peerName] : [n.peerName, n.name];
+    a.ui.names = this.spectator ? [n.peerName, this.info.nm[1] || null] : (this.isHost ? [n.name, n.peerName] : [n.peerName, n.name]);
     a.ui.statCache = ['', ''];
     a.applyTouchMode(); a.onResize();
   }
   exitMode() {
     const a = this.app, h = document.documentElement;
-    h.classList.remove('online', 'me0', 'me1');
+    h.classList.remove('online', 'me0', 'me1', 'spec'); this.spectator = false;
     a.me = 0; a.input.restoreMap(); a.otouch.setMe(0); a.otouch.setActive(false);
     a.ui.names = [null, null]; a.ui.statCache = ['', ''];
     a.onResize();
   }
   onClose(reason) {
     const a = this.app, inMatch = !GameState.is(GameState.MENU);
+    if (this.netM) { const m = this.netM; this.netM = null; m.teardown(); }
     this.net = null; this.active = false; this.exitMode();
     if (inMatch) a.showNetEnd('Koneksi terputus', reason);
     else { this.err(reason); this.render(); if (a.ui.el.modals.online.classList.contains('hidden')) a.ui.popup(reason, 'info', a.width / 2, a.height * 0.3); }
   }
   owd() { return this.net ? Math.min(0.4, (this.net.rtt || 0) / 2000) : 0; }
-  send(ch, obj) { return this.net ? this.net.send(ch, obj) : false; }
+  send(ch, obj) {
+    if (this.isHost && this.netM && this.netM.ready && OnlineController.FWD[obj.t]) this.netM.send(ch, obj);     // Room Master menerima siaran yang sama dengan tamu
+    return this.net ? this.net.send(ch, obj) : false;
+  }
 
   /* ---------------- Per frame ---------------- */
   /** Lawan: halus + ekstrapolasi singkat dari kecepatan terakhir (menutup jeda jaringan tanpa terlihat "tersendat"). */
-  stepRemote(dt) {
-    const a = this.app, p = a.players[1 - this.me], r = this.rem;
+  stepRemote(dt, idx) {
+    const a = this.app, i = idx === undefined ? 1 - this.me : idx, p = a.players[i], r = this.rems[i];
     if (r.has) {
       const age = Math.min(0.1, (performance.now() - r.lt) / 1000);
       const tx = r.tx + r.vx * age, tz = r.tz + r.vz * age, dx = tx - p.x, dz = tz - p.z;
@@ -3887,7 +3953,7 @@ class OnlineController {
     } else p.update(dt, null, false);
   }
   tick(dt) {
-    if (!this.net || !this.net.ready || GameState.is(GameState.MENU)) return;
+    if (!this.net || !this.net.ready || this.spectator || GameState.is(GameState.MENU)) return;
     const gp = 1 / CONFIG.NET_SEND_HZ;
     this.sendAcc += dt;
     if (this.sendAcc >= gp) { this.sendAcc = Math.min(this.sendAcc - gp, gp); this.send('u', this.buildPacket()); }
@@ -3898,7 +3964,7 @@ class OnlineController {
   }
   buildPacket() {
     const p = this.app.players[this.me], f = (v, k) => Math.round(v * k) / k;
-    return { t: 'p', x: f(p.x, 1000), z: f(p.z, 1000), y: f(p.targetYaw, 100), m: p.moving ? 1 : 0, e: p.energy, bc: p.bombCapacity, br: p.blastRadius,
+    return { t: 'p', i: this.me, x: f(p.x, 1000), z: f(p.z, 1000), y: f(p.targetYaw, 100), m: p.moving ? 1 : 0, e: p.energy, bc: p.bombCapacity, br: p.blastRadius,
              sl: p.speedLevel, sb: f(p.speedBoostT, 10), sh: p.shield ? 1 : 0, st: f(p.shieldT, 10), ra: p.remoteArmed ? 1 : 0 };
   }
   buildWorld() {
@@ -3907,7 +3973,7 @@ class OnlineController {
     return { t: 'w', s: ++this.wSeq, tl: Math.round(a.match.timeLeft * 10) / 10, lv: [P[0].lives, P[1].lives], al: [P[0].alive ? 1 : 0, P[1].alive ? 1 : 0], b: list };
   }
   applyPacket(m) {
-    const a = this.app, p = a.players[1 - this.me], r = this.rem, now = performance.now();
+    const a = this.app, idx = this.spectator ? (m.i === 1 ? 1 : 0) : 1 - this.me, p = a.players[idx], r = this.rems[idx], now = performance.now();
     if (!isFinite(m.x) || !isFinite(m.z)) return;
     const cl = (v, lo, hi) => Math.max(lo, Math.min(hi, +v || 0));
     const x = cl(m.x, -7, 7), z = cl(m.z, -6, 6);
@@ -3939,8 +4005,8 @@ class OnlineController {
   /* ---------------- Kejadian dari host → tamu ---------------- */
   sendStart() {
     const a = this.app, m = a.match;
-    this.pendingNext = this.pendingRematch = this.waitingReq = false; this.rem.has = false; this.lastW = -1; this.wSeq = 0;
-    this.send('r', { t: 'start', g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })) });
+    this.pendingNext = this.pendingRematch = this.waitingReq = false; this.rems[0].has = this.rems[1].has = false; this.lastW = -1; this.wSeq = 0;
+    this.send('r', { t: 'start', nm: [this.net.name, this.net.peerName], g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })) });
   }
   sendOver(result) {
     const m = this.app.match;
@@ -3972,7 +4038,11 @@ class OnlineController {
   onMessage(m) {
     const a = this.app, S = GameState, owd = this.owd();
     switch (m.t) {
-      case 'p': this.applyPacket(m); break;
+      case 'p':
+        this.applyPacket(m);
+        if (this.isHost && this.netM && this.netM.ready) this.netM.send('u', m);      // teruskan posisi tamu ke Room Master
+        break;
+      case 'info': this.info = m; if (this.spectator && this.active) { a.ui.names = [this.net.peerName, m.nm[1] || null]; a.ui.statCache = ['', '']; } this.render(); break;
       case 'w': if (!this.isHost) this.applyWorld(m); break;
       case 'start': if (!this.isHost) this.onStart(m); break;
       case 'bomb': {
@@ -4020,7 +4090,17 @@ class OnlineController {
     const a = this.app;
     if (!a.ready) return;
     a.match.scores = m.sc.slice(); a.match.history = m.hi; a.match.round = m.r; a.match.winner = null;
-    this.rem.has = false; this.lastW = -1; this.waitingReq = false;
+    this.rems[0].has = this.rems[1].has = false; this.lastW = -1; this.waitingReq = false;
+    if (m.nm && this.spectator) { a.ui.names = [m.nm[0] || null, m.nm[1] || null]; a.ui.statCache = ['', '']; }
+    if (m.late) {                                      // Room Master masuk di tengah pertandingan
+      if (m.ph !== GameState.COUNTDOWN && m.ph !== GameState.PLAYING) { a.ui.setScore(a.match); return; }
+      a.startRound(m.g, 0);
+      if (m.ph === GameState.PLAYING) {
+        GameState.set(GameState.PLAYING); a.countdownT = 0; a.match.timeLeft = m.tl; a.ui.hideCountdown();
+        (m.pu || []).forEach((q) => a.powerups.maybeDrop(q[0], q[1], 0, q[2]));
+      }
+      return;
+    }
     a.startRound(m.g, this.owd());
   }
   onBombReq(m) {                                      // host memvalidasi bom tamu (posisi, kapasitas, petak kosong)
@@ -4102,7 +4182,7 @@ class GameApp {
     GameState.onChange((s) => {
       this.input.setEnabled(s === GameState.PLAYING); this.ui.applyState(s);
       this.touchUI.setActive(!this.online.active && (s === GameState.COUNTDOWN || s === GameState.PLAYING));
-      this.otouch.setActive(this.online.active && (s === GameState.COUNTDOWN || s === GameState.PLAYING));
+      this.otouch.setActive(this.online.active && !this.online.spectator && (s === GameState.COUNTDOWN || s === GameState.PLAYING));
       if (s !== GameState.PAUSED) document.documentElement.classList.remove('menuopen');
       this.uiT = 1;
       this.audio.setMusicMode(s === GameState.MENU ? 'menu' : 'battle');
@@ -4228,6 +4308,14 @@ class GameApp {
                 padTop: small ? 44 : CONFIG.VIEW_PAD_TOP, padBottom: small ? 40 : CONFIG.VIEW_PAD_BOTTOM,
                 padSide: (w / h >= 1.45) ? Math.min(240, w * 0.18) : 0 };
     const PANEL_H = 224, CTL_H = 120, CTL_W = 184;     // ukuran desain panel soal & klaster kontrol (px sebelum skala)
+    if (this.online.active && this.online.spectator) {
+      // ROOM MASTER: tidak ada kontrol/panel → arena sebesar mungkin, HUD tipis
+      const sal = this.safeInset('left'), sar = this.safeInset('right');
+      L.online = true; L.ui = clamp(h / 410, 0.6, 1.0); L.bs = L.ui; L.rw = 0; L.top = h <= 420 ? 40 : 46;
+      L.padTop = touch ? (h <= 420 ? 30 : 36) : 56; L.padBottom = touch ? 2 : 14; L.inset = touch ? CONFIG.VIEW_INSET : 0;
+      L.padL = 6 + sal; L.padR = 6 + sar;
+      return L;
+    }
     if (this.online.active && touch && !L.portrait) {
       // ONLINE di HP: hanya SATU pemain per perangkat → seluruh sisi kiri bebas untuk arena + joystick mengambang,
       // panel soal ramping di kanan. Arena dipasang sebesar mungkin (dinding terluar boleh terpotong, HUD tipis).
@@ -4596,10 +4684,10 @@ class GameApp {
 
     if (playing) {
       const acts = this.input.drainActions();
-      for (let i = 0; i < acts.length; i++) this.handleAction(acts[i].player, acts[i].action);
+      if (!(on && this.online.spectator)) for (let i = 0; i < acts.length; i++) this.handleAction(acts[i].player, acts[i].action);   // Room Master hanya menonton
     }
     for (let i = 0; i < this.players.length; i++) {
-      if (on && i !== this.me) this.online.stepRemote(dt);          // lawan: dari jaringan
+      if (on && i !== this.me) this.online.stepRemote(dt, i);          // lawan: dari jaringan
       else this.players[i].update(dt, playing ? this.input.getMove(i) : null);   // diri sendiri: langsung, tanpa menunggu jaringan
     }
     if (!S.is(S.MENU)) {

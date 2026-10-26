@@ -18,6 +18,11 @@ Gameplay **tidak lewat server**. Dua perangkat tersambung langsung (WebRTC DataC
    tidak bisa langsung P2P dan jatuh ke relay (lebih lambat, ±200–400 ms).
 4. Buka URL → **Main Online** → **Buat Ruangan** → kirim kode / tautan ke teman.
 
+## Room Master (penonton)
+Satu orang ketiga bisa **menonton** P1 vs P2 secara langsung: masuk lewat **Masuk sebagai Room Master** + kode ruangan, atau tautan **Tautan Room Master** dari host.
+Ia tersambung langsung ke host (P2P, relay bila gagal), jadi tidak menambah beban jaringan antar-pemain. Hanya satu kursi Room Master; bisa masuk di tengah pertandingan
+(arena langsung disinkronkan) dan bisa diganti orang lain bila keluar. Ia tidak punya kontrol maupun panel soal, dan tidak bisa memulai/menghentikan pertandingan.
+
 ## Kontrol
 - **HP (landscape)**: geser di sisi kiri layar → joystick muncul di bawah ibu jari (ikut terseret, tidak kehabisan jangkauan). **BOM** & **SOAL** di kanan bawah,
   jawaban & kemampuan di panel kanan. Settings: joystick *Mengambang/Tetap*, ukuran kontrol *Kecil/Sedang/Besar*. Tombol ⛶ = layar penuh (juga mengunci landscape).
@@ -26,8 +31,8 @@ Gameplay **tidak lewat server**. Dua perangkat tersambung langsung (WebRTC DataC
 ## Lokal & tes
 ```bash
 node dev-server.js        # http://localhost:3000 (penyimpanan memori)
-npm test                  # 13 tes API pensinyalan
-python3 test/e2e.py       # 2 browser sungguhan (host desktop + tamu HP) lewat WebRTC (pip install playwright && playwright install chromium)
+npm test                  # 17 tes API pensinyalan
+python3 test/e2e.py       # 2 browser sungguhan (host desktop + tamu HP + Room Master) lewat WebRTC (pip install playwright && playwright install chromium)
 ```
 
 ## Batasan
