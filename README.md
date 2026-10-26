@@ -23,6 +23,11 @@ Satu orang ketiga bisa **menonton** P1 vs P2 secara langsung: masuk lewat **Masu
 Ia tersambung langsung ke host (P2P, relay bila gagal), jadi tidak menambah beban jaringan antar-pemain. Hanya satu kursi Room Master; bisa masuk di tengah pertandingan
 (arena langsung disinkronkan) dan bisa diganti orang lain bila keluar. Ia tidak punya kontrol maupun panel soal, dan tidak bisa memulai/menghentikan pertandingan.
 
+## TURN dengan Metered
+Tambahkan env di Vercel (Settings → Environment Variables), lalu Redeploy: `METERED_APP_NAME` (mis. `namaapp` dari `namaapp.metered.live`), `METERED_API_KEY`, dan opsional `METERED_REGION` (mis. `singapore`).
+Server memanggil `https://NAMAAPP.metered.live/api/v1/turn/credentials?apiKey=…` dan meneruskan daftar ICE ke klien (cache 5 menit; bila Metered gagal jatuh ke `ICE_SERVERS` lalu STUN publik).
+Cek: buka `/api/room?action=ice` — daftar harus berisi entri `turn:` dengan `username`/`credential`. Di game, badge kiri-bawah `LANGSUNG` = berhasil tersambung (lewat P2P atau lewat TURN); `RELAY` = jatuh ke relay Redis.
+
 ## Kontrol
 - **HP (landscape)**: geser di sisi kiri layar → joystick muncul di bawah ibu jari (ikut terseret, tidak kehabisan jangkauan). **BOM** & **SOAL** di kanan bawah,
   jawaban & kemampuan di panel kanan. Settings: joystick *Mengambang/Tetap*, ukuran kontrol *Kecil/Sedang/Besar*. Tombol ⛶ = layar penuh (juga mengunci landscape).

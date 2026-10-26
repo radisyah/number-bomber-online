@@ -32,7 +32,30 @@ const normCode = c => { c = String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, 
 const parse = s => { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } };
 const K = { room: c => 'room:' + c, guest: c => 'guest:' + c, master: c => 'master:' + c, mb: (c, link) => 'mb:' + c + ':' + link };
 
-function iceServers() {
+/* ICE server, urutan prioritas:
+   1) Metered: env METERED_APP_NAME + METERED_API_KEY (+ METERED_REGION opsional) → kredensial diambil dari REST API Metered di SERVER
+      (key tidak pernah dikirim ke browser), di-cache 5 menit.
+   2) env ICE_SERVERS (JSON array manual).
+   3) STUN publik saja (koneksi langsung tanpa relay TURN). */
+let meteredCache = { at: 0, list: null };
+async function meteredServers() {
+  const app = (process.env.METERED_APP_NAME || '').trim().replace(/\.metered\.live.*$/i, ''), key = (process.env.METERED_API_KEY || '').trim();
+  if (!app || !key) return null;
+  if (meteredCache.list && Date.now() - meteredCache.at < 5 * 60 * 1000) return meteredCache.list;
+  try {
+    const region = (process.env.METERED_REGION || '').trim();
+    const u = 'https://' + encodeURIComponent(app) + '.metered.live/api/v1/turn/credentials?apiKey=' + encodeURIComponent(key) + (region ? '&region=' + encodeURIComponent(region) : '');
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
+    const r = await fetch(u, { signal: ac.signal }); clearTimeout(t);
+    if (!r.ok) throw new Error('Metered ' + r.status);
+    const arr = await r.json();
+    if (Array.isArray(arr) && arr.length) { meteredCache = { at: Date.now(), list: arr }; return arr; }
+  } catch (e) { console.error('Metered gagal, pakai cadangan:', e.message); }
+  return meteredCache.list;       // pakai cache lama bila ada
+}
+async function iceServers() {
+  const m = await meteredServers();
+  if (m) return m;
   const raw = process.env.ICE_SERVERS;           // JSON array, mis. [{"urls":"turn:host:3478","username":"u","credential":"p"}]
   if (raw) { try { const a = JSON.parse(raw); if (Array.isArray(a) && a.length) return a; } catch (e) { /* abaikan, pakai bawaan */ } }
   return DEFAULT_ICE;
@@ -129,7 +152,7 @@ module.exports = async function handler(req, res) {
     let out;
     if (req.method === 'GET') {
       const q = req.query || {};
-      out = q.action === 'ice' ? { iceServers: iceServers() } : await actState(q);
+      out = q.action === 'ice' ? { iceServers: await iceServers() } : await actState(q);
     } else if (req.method === 'POST') {
       const b = readBody(req);
       const acts = { create: actCreate, join: actJoin, send: actSend, leave: actLeave };
