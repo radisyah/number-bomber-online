@@ -77,6 +77,12 @@ html,body{
 .vchip.p1 i{background:var(--p1);clip-path:polygon(25% 5%,75% 5%,100% 50%,75% 95%,25% 95%,0 50%)}
 .vchip.p2 i{background:var(--p2);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
 .stage-note{font-size:11px;color:#8d99c9;letter-spacing:.1em}
+.dur-box{margin:0 auto 16px;max-width:360px}
+.dur-box .dur-label{display:block;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#aeb9e6;margin-bottom:7px}
+.dur-box .seg{display:flex;width:100%}
+.dur-box .segbtn{flex:1;padding:9px 4px;white-space:nowrap}
+.dur-box.lobby{margin:10px auto 0}
+.dur-box.lobby .dur-note{display:block;font-size:11px;color:#8d99c9;margin-top:6px;text-align:center}
 
 /* ---------- HUD ---------- */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:10;animation:fadeIn .3s ease-out}
@@ -648,6 +654,15 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
       <button id="btn-settings" class="btn alt" type="button">Settings</button>
       <button id="btn-audio" class="btn alt" type="button">Audio</button>
     </div>
+    <div class="dur-box" id="dur-menu">
+      <span class="dur-label">Durasi ronde</span>
+      <div class="seg" role="group" aria-label="Durasi ronde">
+        <button class="segbtn rt-btn" data-rt="60" type="button">1 menit</button>
+        <button class="segbtn rt-btn" data-rt="120" type="button">2 menit</button>
+        <button class="segbtn rt-btn" data-rt="300" type="button">5 menit</button>
+        <button class="segbtn rt-btn" data-rt="600" type="button">10 menit</button>
+      </div>
+    </div>
     <div class="vs">
       <div class="vchip p1"><i></i>P1 · Crimson</div>
       <span class="vs-text">VS</span>
@@ -717,7 +732,7 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
     <ul>
       <li>Pemain pertama yang memenangkan 2 ronde menjadi pemenang pertandingan.</li>
       <li>Setiap ronde diawali hitung mundur 3 detik; arena dan posisi pemain dibuat ulang, nyawa kembali penuh.</li>
-      <li>Satu ronde berlangsung 2 menit. Jika waktu habis, pemain dengan nyawa lebih banyak menang; nyawa sama berarti seri.</li>
+      <li>Durasi satu ronde bisa dipilih di menu utama: 1, 2 (bawaan), 5, atau 10 menit. Online: host yang memilih di lobi. Jika waktu habis, pemain dengan nyawa lebih banyak menang; nyawa sama berarti seri.</li>
       <li>Ronde seri tidak menambah skor siapa pun, dan pertandingan berlanjut ke ronde berikutnya.</li>
       <li>Tekan Esc atau P (atau tombol Jeda) untuk menjeda. Game juga otomatis dijeda bila tab disembunyikan.</li>
     </ul>
@@ -793,6 +808,16 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
       <div class="ol-seats"><div class="ol-seat p1" id="ol-seat1"></div><div class="ol-seat p2 wait" id="ol-seat2"></div></div>
       <div class="ol-seats"><div class="ol-seat rm wait" id="ol-seat3"></div></div>
       <div class="ol-stat" id="ol-stat"></div>
+      <div class="dur-box lobby" id="dur-lobby">
+        <span class="dur-label">Durasi ronde</span>
+        <div class="seg" role="group" aria-label="Durasi ronde">
+          <button class="segbtn rt-lobby" data-rt="60" type="button">1 menit</button>
+          <button class="segbtn rt-lobby" data-rt="120" type="button">2 menit</button>
+          <button class="segbtn rt-lobby" data-rt="300" type="button">5 menit</button>
+          <button class="segbtn rt-lobby" data-rt="600" type="button">10 menit</button>
+        </div>
+        <span class="dur-note" id="dur-note"></span>
+      </div>
       <div class="ol-actions"><button id="ol-copy" class="btn alt" type="button">Salin Tautan</button><button id="ol-copy-m" class="btn alt" type="button">Tautan Room Master</button></div>
       <div class="ol-actions"><button id="ol-go" class="btn" type="button" disabled>MULAI PERTANDINGAN</button></div>
       <div class="ol-actions"><button id="ol-leave" class="btn alt" type="button">Keluar Ruangan</button></div>
@@ -833,7 +858,8 @@ const CONFIG = {
   VIEW_PAD_TOP: 56, VIEW_PAD_BOTTOM: 52,
   MAX_DT: 0.05,
   WINS_NEEDED: 2,            // Best of 3: menang 2 ronde
-  ROUND_TIME: 120,           // detik per ronde
+  ROUND_TIME: 120,           // detik per ronde (bawaan; pemain bisa memilih lewat ROUND_TIME_OPTIONS)
+  ROUND_TIME_OPTIONS: [60, 120, 300, 600],   // pilihan durasi ronde: 1, 2, 5, 10 menit
   COUNTDOWN_SECONDS: 3,      // hitung mundur sebelum ronde
   ROUND_OVER_DELAY: 1.4,     // jeda sebelum layar hasil muncul (efek ledakan & animasi kalah selesai)
   PLAYER_LIVES: 2,
@@ -1677,16 +1703,16 @@ function judgeTimeout(players) {
    MatchManager — skor Best of 3, nomor ronde, timer ronde (data murni, tanpa DOM)
    ===================================================================== */
 class MatchManager {
-  constructor() { this.reset(); }
+  constructor() { this.roundTime = CONFIG.ROUND_TIME; this.reset(); }
   reset() {
     this.scores = [0, 0];
     this.round = 1;
     this.history = [];            // [{round, type, winner}]
     this.winner = null;           // pemenang pertandingan (0/1) atau null
-    this.timeLeft = CONFIG.ROUND_TIME;
+    this.timeLeft = this.roundTime;
   }
   get over() { return this.winner !== null; }
-  beginRound() { this.timeLeft = CONFIG.ROUND_TIME; }
+  beginRound() { this.timeLeft = this.roundTime; }
   advance() { if (!this.over) this.round++; }
   /** Catat hasil ronde berjalan (idempotent per ronde). Seri tidak menambah skor. Mengembalikan true bila tercatat. */
   record(result) {
@@ -2038,7 +2064,7 @@ class BombManager {
    ===================================================================== */
 const Settings = {
   KEY: 'numberbomber.settings.v1',
-  data: { volume: 0.7, muted: false, quality: 'high', effects: true, touch: 'auto', joy: 'float', csize: 1 },
+  data: { volume: 0.7, muted: false, quality: 'high', effects: true, touch: 'auto', joy: 'float', csize: 1, roundTime: CONFIG.ROUND_TIME },
   sanitize(o) {
     const d = this.data;
     if (o && typeof o === 'object') {
@@ -2048,6 +2074,7 @@ const Settings = {
       if (typeof o.effects === 'boolean') d.effects = o.effects;
       if (o.touch === 'auto' || o.touch === 'on' || o.touch === 'off') d.touch = o.touch;
       if (o.joy === 'float' || o.joy === 'fixed') d.joy = o.joy;
+      if (CONFIG.ROUND_TIME_OPTIONS.indexOf(o.roundTime) >= 0) d.roundTime = o.roundTime;
       if (typeof o.csize === 'number' && isFinite(o.csize)) d.csize = Math.max(0.8, Math.min(1.3, o.csize));
     }
     return d;
@@ -3054,6 +3081,8 @@ class UIManager {
     click('btn-t-off', () => this.h.onSetting('touch', 'off'));
     click('btn-j-float', () => this.h.onSetting('joy', 'float'));
     click('btn-j-fixed', () => this.h.onSetting('joy', 'fixed'));
+    this.rtBtns = Array.prototype.slice.call(document.querySelectorAll('.rt-btn'));
+    this.rtBtns.forEach((b) => b.addEventListener('click', (e) => { e.currentTarget.blur(); if (this.h.onUiClick) this.h.onUiClick(); this.h.onSetting('roundTime', Number(b.dataset.rt)); }));
     click('btn-c-s', () => this.h.onSetting('csize', 0.85));
     click('btn-c-m', () => this.h.onSetting('csize', 1));
     click('btn-c-l', () => this.h.onSetting('csize', 1.2));
@@ -3183,6 +3212,7 @@ class UIManager {
     act(e.fxOn, !!S.effects); act(e.fxOff, !S.effects);
     act(e.tAuto, S.touch === 'auto'); act(e.tOn, S.touch === 'on'); act(e.tOff, S.touch === 'off');
     act(e.jF, S.joy === 'float'); act(e.jX, S.joy === 'fixed');
+    this.rtBtns.forEach((b) => act(b, Number(b.dataset.rt) === S.roundTime));
     act(e.cS, S.csize < 0.95); act(e.cM, S.csize >= 0.95 && S.csize < 1.1); act(e.cL, S.csize >= 1.1);
     act(e.sndOn, !S.muted); act(e.sndOff, !!S.muted);
     const pct = Math.round(S.volume * 100);
@@ -3252,14 +3282,14 @@ class UIManager {
   hideCountdown() { this.cdText = null; this.el.countdown.classList.add('hidden'); }
 
   /* ---- Timer & skor HUD (hanya menyentuh DOM saat nilainya berubah) ---- */
-  setTimer(sec) {
-    const v = Math.max(0, Math.ceil(sec));
-    if (v === this.timerSec) return;
-    this.timerSec = v;
+  setTimer(sec, total) {
+    const v = Math.max(0, Math.ceil(sec)), tot = total || CONFIG.ROUND_TIME;
+    if (v === this.timerSec && tot === this.timerTotal) return;
+    this.timerSec = v; this.timerTotal = tot;
     const e = this.el;
     e.msTimer.textContent = Math.floor(v / 60) + ':' + (v % 60 < 10 ? '0' : '') + (v % 60);
-    e.msBar.style.width = Math.max(0, Math.min(100, Math.round(100 * v / CONFIG.ROUND_TIME))) + '%';
-    const lvl = v <= 10 ? 'low' : (v <= 30 ? 'warn' : '');
+    e.msBar.style.width = Math.max(0, Math.min(100, Math.round(100 * v / tot))) + '%';
+    const lvl = v <= 10 ? 'low' : (v <= Math.min(30, tot / 3) ? 'warn' : '');
     e.msTimer.className = lvl; e.msBar.className = lvl;
   }
   setScore(match) {
@@ -3765,6 +3795,8 @@ class OnlineController {
     click(this.el.copy, () => this.copyLink(false));
     click(this.el.copyM, () => this.copyLink(true));
     click(this.el.watch, () => this.join(true));
+    this.rtBtns = Array.prototype.slice.call(document.querySelectorAll('.rt-lobby'));
+    this.rtBtns.forEach((b) => click(b, () => this.setRoundTime(Number(b.dataset.rt))));
     click(this.el.go, () => this.hostStart());
     click(this.el.leave, () => this.leave(true));
     click(this.el.close, () => app.ui.closeModals());
@@ -3845,9 +3877,18 @@ class OnlineController {
     else if (n.mode === 'p2p') { msg = 'Terhubung langsung ✔ · ping ' + Math.round(n.rtt || 0) + ' ms'; cls = 'ok'; }
     else { msg = 'Terhubung lewat relay (lebih lambat). Koneksi langsung gagal.'; }
     e.stat.textContent = msg; e.stat.className = 'ol-stat ' + cls;
+    const rt = host ? Settings.data.roundTime : (this.info && this.info.rt), note = document.getElementById('dur-note');
+    this.rtBtns.forEach((b) => { b.classList.toggle('active', Number(b.dataset.rt) === rt); b.disabled = !host || !GameState.is(GameState.MENU); });
+    note.textContent = host ? '' : (rt ? 'Durasi ditentukan oleh host (' + (rt / 60) + ' menit).' : 'Durasi ditentukan oleh host.');
     show(e.go, !spec); show(e.copyM, host); show(e.copy, !spec);
     e.go.disabled = !(n.ready && host && this.app.ready);
     e.go.textContent = host ? (n.ready ? 'MULAI PERTANDINGAN' : 'Menunggu lawan…') : (n.ready ? 'Menunggu host memulai…' : 'Menghubungkan…');
+  }
+  /** Host memilih durasi ronde di lobi; tamu & Room Master menerimanya lewat pesan 'info' (dan 'start'). */
+  setRoundTime(v) {
+    if (!this.net || !this.isHost || !GameState.is(GameState.MENU)) return;
+    this.app.setSetting('roundTime', v);
+    this.broadcastInfo(); this.render();
   }
   copyLink(master) {
     const n = this.net; if (!n) return;
@@ -3901,7 +3942,7 @@ class OnlineController {
   }
   broadcastInfo() {
     if (!this.isHost || !this.net) return;
-    const n = this.net, info = { t: 'info', nm: [n.name, n.peerJoined ? n.peerName : ''], master: this.masterName };
+    const n = this.net, info = { t: 'info', nm: [n.name, n.peerJoined ? n.peerName : ''], master: this.masterName, rt: Settings.data.roundTime };
     this.info = info;
     [n, this.netM].forEach((x) => { if (x && x.ready) x.send('r', info); });
   }
@@ -3909,7 +3950,7 @@ class OnlineController {
   sendSync() {
     const a = this.app, S = GameState, m = a.match;
     if (!this.netM || !this.netM.ready || !this.active || S.is(S.MENU)) return;
-    this.netM.send('r', { t: 'start', late: 1, ph: S.current, g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })),
+    this.netM.send('r', { t: 'start', late: 1, rt: m.roundTime, ph: S.current, g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })),
       nm: [this.net.name, this.net.peerName], tl: m.timeLeft, pu: Array.from(a.powerups.items.values()).map((it) => [it.c, it.r, it.type]) });
   }
 
@@ -4019,7 +4060,7 @@ class OnlineController {
   sendStart() {
     const a = this.app, m = a.match;
     this.pendingNext = this.pendingRematch = this.waitingReq = false; this.rems[0].has = this.rems[1].has = false; this.lastW = -1; this.wSeq = 0;
-    this.send('r', { t: 'start', nm: [this.net.name, this.net.peerName], g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })) });
+    this.send('r', { t: 'start', rt: m.roundTime, nm: [this.net.name, this.net.peerName], g: a.arena.serialize(), r: m.round, sc: m.scores.slice(), hi: m.history.map((h) => ({ round: h.round, type: h.type, winner: h.winner })) });
   }
   sendOver(result) {
     const m = this.app.match;
@@ -4102,6 +4143,7 @@ class OnlineController {
   onStart(m) {
     const a = this.app;
     if (!a.ready) return;
+    if (CONFIG.ROUND_TIME_OPTIONS.indexOf(m.rt) >= 0) a.match.roundTime = m.rt;
     a.match.scores = m.sc.slice(); a.match.history = m.hi; a.match.round = m.r; a.match.winner = null;
     this.rems[0].has = this.rems[1].has = false; this.lastW = -1; this.waitingReq = false;
     if (m.nm && this.spectator) { a.ui.names = [m.nm[0] || null, m.nm[1] || null]; a.ui.statCache = ['', '']; }
@@ -4465,6 +4507,7 @@ class GameApp {
     this.powerups.reset();
     this.players.forEach((p) => p.resetForRound());   // termasuk energi, efek sementara, kemampuan
     this.math.reset(this.match.round >= 3 ? 2 : 1);
+    if (!(this.online.active && !this.online.isHost)) this.match.roundTime = Settings.data.roundTime;   // tamu/Room Master memakai durasi dari host (lihat onStart)
     this.match.beginRound();
     this.roundResult = null;
     this.resultShown = false;
@@ -4476,7 +4519,7 @@ class GameApp {
     this.ui.resetFx();
     this.lastSec = -1;
     this.ui.setScore(this.match);
-    this.ui.setTimer(CONFIG.ROUND_TIME);
+    this.ui.setTimer(this.match.roundTime, this.match.roundTime);
     this.ui.setCountdownRound('Ronde ' + this.match.round);
     GameState.set(GameState.COUNTDOWN);
     this.ui.setCountdown(String(CONFIG.COUNTDOWN_SECONDS));
@@ -4709,7 +4752,7 @@ class GameApp {
         }
         this.monitorPerf(rawDt);
         this.match.timeLeft = Math.max(0, this.match.timeLeft - dt);
-        this.ui.setTimer(this.match.timeLeft);
+        this.ui.setTimer(this.match.timeLeft, this.match.roundTime);
         const sec = Math.ceil(this.match.timeLeft);
         if (sec !== this.lastSec) { this.lastSec = sec; if (sec > 0 && sec <= 5) this.audio.play('timer'); }   // detak 5 detik terakhir
         if (!guest) {                                                  // hanya host/lokal yang menjatuhkan vonis ronde
