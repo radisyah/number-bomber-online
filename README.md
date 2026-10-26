@@ -5,11 +5,17 @@ Satu perangkat = satu pemain. Host = P1, tamu = P2.
 
 ## Kenapa terasa tanpa delay
 Gameplay **tidak lewat server**. Dua perangkat tersambung langsung (WebRTC DataChannel), jadi latensi = jarak jaringan kedua HP saja.
-- Gerakan, soal matematika, energi, kemampuan **dihitung di perangkat pemain sendiri** → respons sentuhan instan.
+- Gerakan, soal matematika, dan amunisi bom **dihitung di perangkat pemain sendiri** → respons sentuhan instan.
 - Dunia bersama (bom, ledakan, peti, power-up, nyawa, timer ronde) diputuskan **host**, disiarkan sebagai kejadian andal + snapshot 10×/dtk.
 - Bom tamu muncul seketika (prediksi lokal) lalu dikonfirmasi host. Lawan digambar dengan interpolasi + ekstrapolasi dari paket 30×/dtk.
 - Server Vercel + Upstash Redis hanya dipakai untuk membuat/gabung ruangan, bertukar SDP/ICE, dan **relay cadangan** bila koneksi langsung gagal
   (badge kiri-bawah menampilkan `LANGSUNG · xx ms` atau `RELAY`).
+
+## Mekanika amunisi bom
+- Tiap ronde pemain mulai dengan **3 bom** (`CONFIG.AMMO_START`). Memasang bom memakai 1 amunisi; amunisi **tidak kembali** saat bom meledak.
+- Untuk mengisi ulang, jawab soal matematika: **benar = +1 bom**; salah / waktu habis / soal ditutup = tidak dapat bom. Simpanan maksimal 6 (`CONFIG.AMMO_MAX`); soal tidak bisa dibuka bila sudah penuh.
+- Math Energy, kemampuan (Fire Range, Bomb Capacity, Speed, Shield, Remote) serta power-up Bomb Capacity & Math Crystal dinonaktifkan. Power-up Speed Boots, Fire Range, dan Shield dari peti tetap ada.
+- Online: amunisi dipegang perangkat masing-masing pemain (host tidak memeriksa amunisi tamu); bom tamu yang ditolak host mengembalikan amunisinya.
 
 ## Deploy ke Vercel
 1. Taruh folder ini di GitHub → **Add New → Project** di Vercel (preset "Other", tanpa build command).
@@ -29,8 +35,8 @@ Server memanggil `https://NAMAAPP.metered.live/api/v1/turn/credentials?apiKey=�
 Cek: buka `/api/room?action=ice` — daftar harus berisi entri `turn:` dengan `username`/`credential`. Di game, badge kiri-bawah `LANGSUNG` = berhasil tersambung (lewat P2P atau lewat TURN); `RELAY` = jatuh ke relay Redis.
 
 ## Kontrol
-- **HP (landscape)**: geser di sisi kiri layar → joystick muncul di bawah ibu jari (ikut terseret, tidak kehabisan jangkauan). **BOM** & **SOAL** di kanan bawah,
-  jawaban & kemampuan di panel kanan. Settings: joystick *Mengambang/Tetap*, ukuran kontrol *Kecil/Sedang/Besar*. Tombol ⛶ = layar penuh (juga mengunci landscape).
+- **HP (landscape)**: geser di sisi kiri layar → joystick muncul di bawah ibu jari (ikut terseret, tidak kehabisan jangkauan). **BOM** (menampilkan sisa amunisi) & **SOAL** di kanan bawah,
+  pilihan jawaban di panel kanan. Settings: joystick *Mengambang/Tetap*, ukuran kontrol *Kecil/Sedang/Besar*. Tombol ⛶ = layar penuh (juga mengunci landscape).
 - **PC**: WASD atau panah, Spasi/Enter = bom, Q = soal, 1–4 = jawab, Esc = menu (game online tidak berhenti saat menu dibuka).
 
 ## Lokal & tes

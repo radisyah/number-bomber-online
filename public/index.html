@@ -274,7 +274,10 @@ kbd{
 .mp-time i.low{background:#ff5a5a}
 .mp-fb{min-height:16px;margin-top:5px;font-size:11px;font-weight:800;line-height:1.3}
 .mp-fb.good{color:#6dffa8}.mp-fb.bad{color:#ff7a7a}.mp-fb.info{color:#aeb9e6}
-.mp-abil{display:grid;grid-template-columns:1fr;gap:3px;margin-top:6px}
+.mp-abil{display:none!important}   /* kemampuan berbasis energi dinonaktifkan */
+.tbtn.bomb,.ot-btn.bomb{flex-direction:column}
+.tbtn.bomb small,.ot-btn.bomb small{display:block;font-size:17px;line-height:1;margin-top:2px;font-weight:900}
+.tbtn.bomb.empty,.ot-btn.bomb.empty{filter:grayscale(.85) brightness(.75)}
 .ab{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:8px;background:rgba(255,255,255,.05);color:#6f7aa6;font-size:11px;font-weight:800}
 .ab span{flex:1}.ab small{font-size:10px;font-weight:900}
 .ab.ok{background:rgba(120,90,255,.28);color:#fff;box-shadow:inset 0 0 0 1px rgba(160,140,255,.7)}
@@ -662,7 +665,7 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
     <h3>Main Online</h3>
     <ul>
       <li><b>Buat Ruangan</b> lalu bagikan kode 5 huruf (atau tombol <b>Salin Tautan</b>) ke temanmu. Teman memilih <b>Gabung</b> dan memasukkan kode. Pembuat ruangan = P1 (host) dan menekan <b>MULAI</b>.</li>
-      <li>Setiap perangkat hanya mengendalikan <b>pemainnya sendiri</b>. Gerakan, soal, dan kemampuanmu berjalan langsung di perangkatmu (tanpa menunggu server); bom, ledakan, dan nyawa diputuskan host agar adil.</li>
+      <li>Setiap perangkat hanya mengendalikan <b>pemainnya sendiri</b>. Gerakan, soal, dan amunisi bommu berjalan langsung di perangkatmu (tanpa menunggu server); bom, ledakan, dan nyawa diputuskan host agar adil.</li>
       <li>Koneksi dibuat <b>langsung antar-perangkat</b> (P2P). Ping tampil di kiri bawah. Bila koneksi langsung gagal, game memakai relay lewat server (lebih lambat).</li>
       <li>HP: <b>geser di sisi kiri layar</b> (joystick muncul di bawah ibu jari), tombol <b>BOM</b> dan <b>SOAL</b> di kanan. Ukuran &amp; mode joystick ada di Settings. Mode layar penuh sangat disarankan.</li>
       <li>PC: WASD atau panah, Spasi/Enter = bom, Q = soal, 1–4 = jawab.</li>
@@ -678,7 +681,7 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
     <h3>Kontrol sentuh (satu perangkat, dua pemain)</h3>
     <ul>
       <li>Layar dibagi dua: sisi kiri untuk <b>P1</b>, sisi kanan untuk <b>P2</b>. Tiap sisi punya pad arah (geser jari untuk berganti arah), tombol <b>BOM</b>, dan tombol <b>SOAL</b>.</li>
-      <li>Ketuk <b>SOAL</b> (atau kotak soal) untuk membuka soal, lalu ketuk salah satu dari 4 pilihan jawaban di panel. Ketuk tombol kemampuan di bawah panel untuk memakai energi.</li>
+      <li>Ketuk <b>SOAL</b> (atau kotak soal) untuk membuka soal, lalu ketuk salah satu dari 4 pilihan jawaban di panel. Tiap jawaban benar menambah 1 bom.</li>
       <li>Pad arah dan panel jawaban terpisah, jadi menggerakkan karakter sambil menjawab tidak saling mengganggu. Kontrol sentuh aktif otomatis di layar sentuh; bisa diatur di Settings.</li>
       <li>Putar perangkat ke landscape. Bila diputar ke portrait pada layar sempit, game otomatis dijeda.</li>
     </ul>
@@ -691,31 +694,24 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
     <h3>Bom &amp; pertarungan</h3>
     <ul>
       <li>Tiap pemain punya 2 nyawa. Terkena ledakan, termasuk dari bom sendiri, mengurangi 1 nyawa.</li>
-      <li>Awalnya hanya 1 bom aktif sekaligus. Bom meledak setelah 2,5 detik dengan jangkauan 2 tile ke empat arah.</li>
+      <li>Tiap ronde kamu mulai dengan <b>3 bom</b> (amunisi). Setiap bom yang dipasang memakai 1 amunisi, dan amunisi tidak kembali setelah bom meledak. Bom meledak setelah 2,5 detik dengan jangkauan 2 tile ke empat arah.</li>
+      <li>Amunisi habis? Jawab soal matematika dengan benar untuk mendapat <b>1 bom</b> (simpanan maksimal 6).</li>
       <li>Api berhenti di dinding batu dan di peti (peti hancur). Bom yang terkena api langsung ikut meledak berantai.</li>
       <li>Setelah memasang bom, Anda boleh melangkah keluar, tetapi tidak bisa masuk lagi ke tile bom itu.</li>
       <li>Pemain pertama yang kehabisan nyawa kalah di ronde itu. Jika keduanya habis nyawa pada ledakan yang sama, ronde seri.</li>
     </ul>
-    <h3>Soal matematika &amp; Math Energy</h3>
+    <h3>Soal matematika &amp; amunisi bom</h3>
     <ul>
       <li>Tiap pemain punya panel soal sendiri. Tekan tombol soal untuk membuka soal; permainan <b>tidak berhenti</b> dan kamu tetap bisa terkena ledakan.</li>
       <li>Soal penjumlahan, pengurangan, perkalian, dan pembagian, masing-masing dengan 4 pilihan. Angkanya makin besar bila jawabanmu benar beruntun, dan kembali kecil bila salah.</li>
-      <li>Jawab dengan tombol pilihan. Benar: <b>+25</b> energi. Salah: <b>−10</b> energi. Tidak dijawab (waktu habis atau soal ditutup): energi tidak berubah.</li>
+      <li>Jawab dengan tombol pilihan. Benar: <b>+1 bom</b>. Salah, waktu habis, atau soal ditutup: tidak dapat bom. Soal tidak bisa dibuka bila amunisi sudah penuh.</li>
       <li>P1: soal <b>Q</b>, jawab <b>1 2 3 4</b>. P2: soal <b>Shift kanan</b>, jawab <b>N M , .</b> (atau Numpad 1–4).</li>
-    </ul>
-    <h3>Kemampuan (memakai energi)</h3>
-    <ul>
-      <li><b>Fire Range</b> (30): radius +1, maks 5. P1 <b>E</b> · P2 <b>I</b></li>
-      <li><b>Bomb Capacity</b> (40): kapasitas bom +1, maks 4. P1 <b>R</b> · P2 <b>O</b></li>
-      <li><b>Speed Boost</b> (25): kecepatan ×1,25 selama 8 detik. P1 <b>F</b> · P2 <b>K</b></li>
-      <li><b>Shield</b> (50): menyerap 1 ledakan, hilang sendiri setelah 10 detik. P1 <b>C</b> · P2 <b>L</b></li>
-      <li><b>Remote Bomb</b> (60): bom berikutnya diledakkan manual dengan tombol yang sama (otomatis meledak setelah 8 detik). P1 <b>X</b> · P2 <b>;</b></li>
     </ul>
     <h3>Power-up dari peti</h3>
     <ul>
-      <li>Peti yang hancur bisa menjatuhkan: <b>Speed Boots</b> (kecepatan permanen, maks 3 level), <b>Bomb Capacity</b>, <b>Fire Range</b>, <b>Shield</b>, atau <b>Math Crystal</b> (+20 energi).</li>
+      <li>Peti yang hancur bisa menjatuhkan: <b>Speed Boots</b> (kecepatan permanen, maks 3 level), <b>Fire Range</b> (api +1), atau <b>Shield</b>. Bom tambahan hanya didapat lewat soal matematika.</li>
       <li>Injak untuk mengambil. Power-up tidak diambil bila efeknya sudah maksimum. Ledakan lain bisa menghancurkannya.</li>
-      <li>Semua energi, kemampuan, dan power-up direset di awal setiap ronde.</li>
+      <li>Amunisi (kembali ke 3) dan power-up direset di awal setiap ronde.</li>
     </ul>
     <h3>Pertandingan Best of 3</h3>
     <ul>
@@ -843,7 +839,9 @@ const CONFIG = {
   PLAYER_LIVES: 2,
   BOMB_TIME: 2.5,            // detik hitung mundur bom standar
   BOMB_RADIUS: 2,            // radius ledakan awal (tile)
-  BOMB_CAPACITY: 1,          // kapasitas bom aktif awal
+  BOMB_CAPACITY: 1,          // (tidak dipakai lagi: batas bom kini ditentukan amunisi)
+  AMMO_START: 3,             // amunisi bom di awal ronde
+  AMMO_MAX: 6,               // batas simpanan amunisi (jawaban benar menambah 1 bom)
   FLAME_LIFE: 0.5,           // lama api ledakan menyala (detik)
   FLAME_POOL_MAX: 160,       // batas mesh api yang dipakai ulang
   // --- Tahap 4: soal, energi, kemampuan, power-up ---
@@ -1496,7 +1494,8 @@ class PlayerController {
     this.hitTimer = 0;               // kedip singkat setelah terkena
     this.deathT = 0;                 // animasi kalah
     // Status Tahap 4 (semua direset tiap ronde)
-    this.energy = 0;                 // Math Energy 0–100
+    this.energy = 0;                 // (tidak dipakai lagi)
+    this.ammo = CONFIG.AMMO_START;   // amunisi bom: dipakai saat memasang bom, diisi lewat soal matematika
     this.speedLevel = 0;             // level Speed Boots permanen (0–MAX_SPEED_LEVEL)
     this.speedBoostT = 0;            // sisa detik Speed Boost sementara
     this.shield = false; this.shieldT = 0; this.shieldBreakT = 0;
@@ -1532,7 +1531,7 @@ class PlayerController {
     this.damageEvents.clear();
     this.hitTimer = 0;
     this.deathT = 0;
-    this.energy = 0; this.speedLevel = 0; this.speedBoostT = 0;
+    this.energy = 0; this.ammo = CONFIG.AMMO_START; this.speedLevel = 0; this.speedBoostT = 0;
     this.shield = false; this.shieldT = 0; this.shieldBreakT = 0;
     this.remoteArmed = false;
     this.resetToSpawn();
@@ -1780,10 +1779,10 @@ class BombManager {
 
   /* ---- Penempatan ---- */
   /** Inti pemasangan bom. ghost=true: prediksi lokal tamu (menunggu konfirmasi host). */
-  placeCore(player, c, r, ghost) {
+  placeCore(player, c, r, ghost, free) {
     const arena = this.arena, key = r * arena.cols + c;
     if (!player.alive || !arena.isWalkable(c, r) || this.bombs.has(key)) return null;
-    if (this.activeBombsOf(player.index) >= player.bombCapacity) return null;
+    if (!free && player.ammo <= 0) return null;     // tanpa amunisi tidak bisa memasang bom (free = bom tamu yang divalidasi host)
     const remote = !!player.remoteArmed;       // kemampuan Remote Bomb: bom berikutnya menjadi remote (sekali pakai)
     if (remote) player.remoteArmed = false;
     const fuse = remote ? CONFIG.REMOTE_FAILSAFE : CONFIG.BOMB_TIME;
@@ -1798,17 +1797,19 @@ class BombManager {
     bomb.mesh.root.position.set(arena.xOf(c), 0, arena.zOf(r));
     this.group.add(bomb.mesh.root);
     this.bombs.set(key, bomb);
+    if (!free) player.ammo = Math.max(0, player.ammo - 1);   // satu bom terpakai
     if (this.onPlace) this.onPlace(bomb);
     return bomb;
   }
-  tryPlace(player, c, r) {
+  tryPlace(player, c, r, free) {
     if (!this.simulating) return false;
-    return !!this.placeCore(player, c === undefined ? player.col : c, r === undefined ? player.row : r, false);
+    return !!this.placeCore(player, c === undefined ? player.col : c, r === undefined ? player.row : r, false, !!free);
   }
-  tryPlaceGhost(player) { return this.placeCore(player, player.col, player.row, true); }
+  tryPlaceGhost(player) { return this.placeCore(player, player.col, player.row, true, false); }
   dropGhost(c, r) {
     const key = r * this.arena.cols + c, b = this.bombs.get(key);
-    if (b && b.ghost) { this.bombs.delete(key); this.releaseBombMesh(b.mesh); }
+    if (b && b.ghost) { this.bombs.delete(key); this.releaseBombMesh(b.mesh); return true; }
+    return false;
   }
   /** Tamu: bom dari host (atau konfirmasi bom hantu milik sendiri). Mengembalikan {bomb,isNew} atau null. */
   spawnNet(m) {
@@ -1860,7 +1861,7 @@ class BombManager {
     this.bombs.forEach((b, key) => {
       b.timeLeft -= dt;
       b.passThrough.forEach((i) => { if (!this.players[i].overlapsCell(b.c, b.r)) b.passThrough.delete(i); });
-      if (b.timeLeft < -1.5 || (b.ghost && now - b.born > 1200)) { this.bombs.delete(key); this.releaseBombMesh(b.mesh); return; }   // pengaman bila konfirmasi/ledakan hilang
+      if (b.timeLeft < -1.5 || (b.ghost && now - b.born > 1200)) { if (b.ghost && this.onGhostLost) this.onGhostLost(b.owner); this.bombs.delete(key); this.releaseBombMesh(b.mesh); return; }   // pengaman bila konfirmasi/ledakan hilang
       this.animateBomb(b);
     });
   }
@@ -2734,20 +2735,20 @@ function addEnergy(p, delta) {
 }
 const POWERUP_DEFS = {
   boots:   { name: 'Speed Boots',   color: 0x35c6ff, weight: 20 },
-  bomb:    { name: 'Bomb Capacity', color: 0xffb03c, weight: 20 },
+  bomb:    { name: 'Bomb Capacity', color: 0xffb03c, weight: 0 },      // nonaktif: bom hanya diisi lewat soal matematika
   fire:    { name: 'Fire Range',    color: 0xff5a3c, weight: 22 },
   shield:  { name: 'Shield',        color: 0x4de08a, weight: 16 },
-  crystal: { name: 'Math Crystal',  color: 0xc27bff, weight: 22 }
+  crystal: { name: 'Math Crystal',  color: 0xc27bff, weight: 0 }       // nonaktif: tidak ada lagi Math Energy
 };
 const Effects = {
   canGrant(p, kind) {
     if (!p.alive) return false;
     switch (kind) {
       case 'boots': return p.speedLevel < CONFIG.MAX_SPEED_LEVEL;
-      case 'bomb': return p.bombCapacity < CONFIG.MAX_BOMBS;
+      case 'bomb': return false;
       case 'fire': return p.blastRadius < CONFIG.MAX_RADIUS;
       case 'shield': return !p.shield;
-      case 'crystal': return p.energy < CONFIG.ENERGY_MAX;
+      case 'crystal': return false;
     }
     return false;
   },
@@ -2781,8 +2782,9 @@ class MathSystem {
   toggle(i) {
     const st = this.state[i], p = this.players[i];
     if (!p.alive) return false;
-    if (st.q) { this.endQuestion(i); this.flash(i, 'Soal ditutup (energi tetap)', 'info'); return true; }
+    if (st.q) { this.endQuestion(i); this.flash(i, 'Soal ditutup', 'info'); return true; }
     if (st.cooldown > 0) return false;
+    if (p.ammo >= CONFIG.AMMO_MAX) { this.flash(i, 'Amunisi penuh (' + CONFIG.AMMO_MAX + ')', 'info'); return false; }
     const q = this.engine.next(st.level, st.lastCat);
     st.q = q; st.timeLeft = q.timeLimit; st.lastCat = q.category; st.fb = null; st.stats.asked++;
     return true;
@@ -2797,19 +2799,18 @@ class MathSystem {
     const q = st.q;
     this.endQuestion(i);
     const correct = idx === q.correct;
-    const e0 = p.energy;
+    const a0 = p.ammo;
     if (correct) {
-      const d = addEnergy(p, CONFIG.ENERGY_CORRECT);
+      p.ammo = Math.min(CONFIG.AMMO_MAX, p.ammo + 1);       // satu jawaban benar = satu bom
       st.stats.correct++; st.streak++;
       if (st.streak >= 2 && st.level < 3) { st.level++; st.streak = 0; }
-      this.flash(i, 'Benar! +' + d + ' energi', 'good');
+      this.flash(i, 'Benar! +1 bom (' + p.ammo + '/' + CONFIG.AMMO_MAX + ')', 'good');
     } else {
-      const d = addEnergy(p, -CONFIG.ENERGY_WRONG);
       st.stats.wrong++; st.streak = 0; st.level = Math.max(1, st.level - 1);
-      this.flash(i, 'Salah! ' + (d < 0 ? MINUS + (-d) + ' energi' : 'energi tetap 0') + ' · jawaban: ' + q.choices[q.correct], 'bad');
+      this.flash(i, 'Salah! Tidak dapat bom · jawaban: ' + q.choices[q.correct], 'bad');
     }
-    if (this.onAnswer) this.onAnswer(i, correct, p.energy - e0);
-    return { correct: correct, energy: p.energy };
+    if (this.onAnswer) this.onAnswer(i, correct, p.ammo - a0);
+    return { correct: correct, ammo: p.ammo };
   }
   update(dt) {
     for (let i = 0; i < 2; i++) {
@@ -2819,10 +2820,10 @@ class MathSystem {
       if (!st.q) continue;
       if (!this.players[i].alive) { this.endQuestion(i); continue; }
       st.timeLeft -= dt;
-      if (st.timeLeft <= 0) {                       // tidak dijawab: energi TIDAK berubah
+      if (st.timeLeft <= 0) {                       // tidak dijawab: tidak dapat bom
         st.stats.expired++;
         this.endQuestion(i);
-        this.flash(i, 'Waktu habis (energi tetap)', 'info');
+        this.flash(i, 'Waktu habis', 'info');
       }
     }
   }
@@ -3079,7 +3080,7 @@ class UIManager {
     let ch = '';
     for (let j = 0; j < 4; j++) ch += '<div class="mp-ch" data-act="ans' + j + '"><kbd>' + K.ans[j] + '</kbd><span id="' + pre + 'ch' + j + '"></span></div>';
     $('mp-panel-' + i).innerHTML =
-      '<div class="mp-head"><b>' + PLAYER_DEFS[i].id + ' · Math Energy</b><span id="' + pre + 'val">0</span></div>' +
+      '<div class="mp-head"><b>' + PLAYER_DEFS[i].id + ' · Amunisi Bom</b><span id="' + pre + 'val">0</span></div>' +
       '<div class="mp-bar"><i id="' + pre + 'bar"></i></div>' +
       '<div class="mp-status" id="' + pre + 'status"></div>' +
       '<div class="mp-qbox idle" data-act="qopen" id="' + pre + 'box"><div class="mp-cat" id="' + pre + 'cat"></div>' +
@@ -3112,7 +3113,7 @@ class UIManager {
   updateMath(math, players, abil, bombs) {
     for (let i = 0; i < 2; i++) {
       const st = math.state[i], p = players[i], M = this.mp[i];
-      if (M.energy !== p.energy) { M.energy = p.energy; M.val.textContent = p.energy; M.bar.style.width = p.energy + '%'; }
+      if (M.energy !== p.ammo) { M.energy = p.ammo; M.val.textContent = p.ammo + '/' + CONFIG.AMMO_MAX; M.bar.style.width = Math.round(100 * p.ammo / CONFIG.AMMO_MAX) + '%'; }
       const qid = st.q ? st.q.id : 0;
       if (qid !== M.qid) {
         M.qid = qid; M.pct = -1;
@@ -3154,6 +3155,18 @@ class UIManager {
         M.status.innerHTML = chips;
       }
     }
+  }
+  /** Tombol BOM (sentuh lokal & online) menampilkan sisa amunisi; abu-abu bila habis. */
+  updateAmmoButtons(players, meOnline) {
+    this._ammoSig = this._ammoSig || ['', '', ''];
+    const set = (btn, n, k) => {
+      if (!btn || this._ammoSig[k] === n) return;
+      this._ammoSig[k] = n;
+      btn.innerHTML = 'Bom<small>' + n + '</small>';
+      if (n > 0) btn.classList.remove('empty'); else btn.classList.add('empty');
+    };
+    for (let i = 0; i < 2; i++) set(document.querySelector('.tbtn.bomb[data-p="' + i + '"]'), players[i].ammo, i);
+    if (meOnline >= 0) set(document.getElementById('ot-bomb'), players[meOnline].ammo, 2);
   }
   /** Mode sentuh: teks petunjuk panel diganti dan dipaksa dirender ulang. */
   setTouch(on) { this.touch = !!on; this.mp.forEach((M) => { M.qid = -1; }); }
@@ -3318,7 +3331,7 @@ class UIManager {
       const p = players[i], active = bombMgr.activeBombsOf(i), rem = bombMgr.activeRemoteOf(i);
       const wins = match ? match.scores[i] : 0;
       const sp = Math.ceil(p.speedBoostT), sh = p.shield ? Math.ceil(p.shieldT) : 0;
-      const sig = [p.lives, p.maxLives, active, p.bombCapacity, p.blastRadius, rem, p.remoteArmed ? 1 : 0, wins, p.energy, sp, sh, p.speedLevel, this.names[i] || ''].join('|');
+      const sig = [p.lives, p.maxLives, active, p.ammo, p.blastRadius, rem, p.remoteArmed ? 1 : 0, wins, sp, sh, p.speedLevel, this.names[i] || ''].join('|');
       if (sig === this.statCache[i]) continue;
       this.statCache[i] = sig;
       const el = this.el.stats[i];
@@ -3327,8 +3340,8 @@ class UIManager {
       let hearts = '', pips = '';
       for (let h = 0; h < p.maxLives; h++) hearts += '<span class="heart' + (h < p.lives ? '' : ' off') + '">&#9829;</span>';
       for (let k = 0; k < CONFIG.WINS_NEEDED; k++) pips += '<i class="pip' + (k < wins ? ' on' : '') + '"></i>';
-      let meta = '<span class="mc">BOM ' + (p.bombCapacity - active) + '/' + p.bombCapacity + '</span>' +
-                 '<span class="mc">API ' + p.blastRadius + '</span><span class="mc en">EN ' + p.energy + '</span>';
+      let meta = '<span class="mc en">BOM ' + p.ammo + '/' + CONFIG.AMMO_MAX + '</span>' +
+                 '<span class="mc">API ' + p.blastRadius + '</span>';
       if (p.speedLevel > 0) meta += '<span class="mc sp opt">BOOTS ' + p.speedLevel + '</span>';
       if (sp > 0) meta += '<span class="mc sp">SPEED ' + sp + 's</span>';
       if (sh > 0) meta += '<span class="mc sh">SHIELD ' + sh + 's</span>';
@@ -3964,7 +3977,7 @@ class OnlineController {
   }
   buildPacket() {
     const p = this.app.players[this.me], f = (v, k) => Math.round(v * k) / k;
-    return { t: 'p', i: this.me, x: f(p.x, 1000), z: f(p.z, 1000), y: f(p.targetYaw, 100), m: p.moving ? 1 : 0, e: p.energy, bc: p.bombCapacity, br: p.blastRadius,
+    return { t: 'p', i: this.me, x: f(p.x, 1000), z: f(p.z, 1000), y: f(p.targetYaw, 100), m: p.moving ? 1 : 0, am: p.ammo, br: p.blastRadius,
              sl: p.speedLevel, sb: f(p.speedBoostT, 10), sh: p.shield ? 1 : 0, st: f(p.shieldT, 10), ra: p.remoteArmed ? 1 : 0 };
   }
   buildWorld() {
@@ -3984,7 +3997,7 @@ class OnlineController {
     } else { r.vx = 0; r.vz = 0; }
     r.tx = x; r.tz = z; r.ty = +m.y || 0; r.moving = !!m.m; r.lt = now;
     if (!r.has) { r.has = true; p.x = x; p.z = z; }
-    p.energy = cl(m.e, 0, CONFIG.ENERGY_MAX) | 0; p.bombCapacity = cl(m.bc, 1, CONFIG.MAX_BOMBS) | 0; p.blastRadius = cl(m.br, 1, CONFIG.MAX_RADIUS) | 0;
+    p.ammo = cl(m.am, 0, CONFIG.AMMO_MAX) | 0; p.blastRadius = cl(m.br, 1, CONFIG.MAX_RADIUS) | 0;
     p.speedLevel = cl(m.sl, 0, CONFIG.MAX_SPEED_LEVEL) | 0; p.speedBoostT = cl(m.sb, 0, 30);
     if (!(this.isHost && now < this.shieldIgnore)) { p.shield = !!m.sh; p.shieldT = cl(m.st, 0, 30); }   // host baru memecahkan perisai tamu → abaikan paket basi
     p.remoteArmed = !!m.ra;
@@ -4023,7 +4036,7 @@ class OnlineController {
   }
 
   /* ---------------- Permintaan tamu → host ---------------- */
-  guestBomb(b) { const p = this.app.players[this.me]; this.send('r', { t: 'bq', c: b.c, r: b.r, rem: b.type === 'remote' ? 1 : 0, rad: b.radius, cap: p.bombCapacity }); }
+  guestBomb(b) { const p = this.app.players[this.me]; this.send('r', { t: 'bq', c: b.c, r: b.r, rem: b.type === 'remote' ? 1 : 0, rad: b.radius }); }
   guestDetonate() { this.send('r', { t: 'det' }); }
   requestNext() { this.waitingReq = true; this.send('r', { t: 'req', w: 'next' }); this.app.ui.popup('Menunggu host…', 'info', this.app.width / 2, this.app.height * 0.2); }
   requestRematch() { this.waitingReq = true; this.send('r', { t: 'req', w: 'rematch' }); this.app.ui.popup('Menunggu host…', 'info', this.app.width / 2, this.app.height * 0.2); }
@@ -4051,7 +4064,7 @@ class OnlineController {
         if (res && res.isNew) { a.fx.bombPlaced(m.c, m.r, PLAYER_DEFS[m.o].accent); a.audio.play('place'); }
         break;
       }
-      case 'rej': if (!this.isHost) a.bombs.dropGhost(m.c, m.r); break;
+      case 'rej': if (!this.isHost && a.bombs.dropGhost(m.c, m.r)) { const me = a.players[this.me]; me.ammo = Math.min(CONFIG.AMMO_MAX, me.ammo + 1); } break;   // bom ditolak host: amunisi dikembalikan
       case 'boom': if (!this.isHost) a.bombs.applyBoom({ ev: m.ev, bombs: m.b, cells: m.g, crates: m.k }); break;
       case 'drop': if (!this.isHost) a.powerups.maybeDrop(m.c, m.r, m.ev, m.k); break;
       case 'pick': {
@@ -4109,8 +4122,7 @@ class OnlineController {
     const c = m.c | 0, r = m.r | 0;
     if (Math.abs(c - g.col) > 2 || Math.abs(r - g.row) > 2) return reject();      // anti-teleport kasar (posisi tamu bisa tertinggal 1–2 petak)
     g.remoteArmed = !!m.rem; g.blastRadius = Math.max(1, Math.min(CONFIG.MAX_RADIUS, m.rad | 0 || 2));
-    g.bombCapacity = Math.max(g.bombCapacity, Math.min(CONFIG.MAX_BOMBS, m.cap | 0 || 1));
-    if (!a.bombs.tryPlace(g, c, r)) reject();
+    if (!a.bombs.tryPlace(g, c, r, true)) reject();      // amunisi tamu dipegang perangkat tamu sendiri, jadi host tidak memeriksanya
   }
 }
 
@@ -4221,6 +4233,7 @@ class GameApp {
         this.fx.bombPlaced(b.c, b.r, PLAYER_DEFS[b.owner].accent); this.audio.play('place');
         if (!b.ghost && this.online.active && this.online.isHost) this.online.evBomb(b);
       };
+      this.bombs.onGhostLost = (o) => { const pl = this.players[o]; if (pl) pl.ammo = Math.min(CONFIG.AMMO_MAX, pl.ammo + 1); };   // bom hantu tak terkonfirmasi: amunisi kembali
       this.bombs.onBoom = (m) => { if (this.online.active && this.online.isHost) this.online.evBoom(m); };
       this.bombs.onCrateNet = (c, r) => { this.fx.crateBreak(c, r); this.audio.play('crate'); };
       this.powerups.onRemove = (c, r) => { if (this.online.active && this.online.isHost) this.online.evPdel(c, r); };
@@ -4238,7 +4251,7 @@ class GameApp {
       document.getElementById('tool-full').addEventListener('click', () => this.goFullscreen(false));
       document.addEventListener('fullscreenchange', () => this.requestResize());
       this.math.onAnswer = (i, correct, delta) => {
-        this.popupAt(this.players[i], correct ? '+' + delta + ' ENERGI' : (delta < 0 ? MINUS + (-delta) : 'SALAH'), correct ? 'good' : 'bad');
+        this.popupAt(this.players[i], correct ? '+1 BOM' : 'SALAH', correct ? 'good' : 'bad');
         this.audio.play(correct ? 'correct' : 'wrong');
       };
       this.computeViewBounds();
@@ -4613,20 +4626,14 @@ class GameApp {
   handleAction(i, a) {
     const pl = this.players[i];
     if (a === 'bomb') {
+      if (pl.alive && pl.ammo <= 0) { this.math.flash(i, 'Amunisi habis! Jawab soal untuk dapat bom', 'bad'); this.audio.play('deny'); return; }
       if (this.online.active && !this.online.isHost) { const gb = this.bombs.tryPlaceGhost(pl); if (gb) this.online.guestBomb(gb); }   // tamu: bom muncul seketika, host mengonfirmasi
       else this.bombs.tryPlace(pl);                                 // efek & suara dipicu callback onPlace
     }
     else if (a === 'question') { if (this.math.toggle(i)) this.audio.play('click'); }
     else if (a === 'qopen') { if (!this.math.state[i].q && this.math.toggle(i)) this.audio.play('click'); }   // sentuh: hanya membuka, tidak menutup
     else if (a.indexOf('ans') === 0) this.math.answer(i, Number(a.slice(3)));   // efek dipicu callback onAnswer
-    else if (ABILITY_IDS.indexOf(a) >= 0) {
-      const r = this.abilities.use(i, a);
-      this.math.flash(i, r.text, r.ok ? 'good' : 'bad');
-      if (r.ok) {
-        this.popupAt(pl, r.reason === 'detonate' ? 'BOOM!' : CONFIG.ABILITY[a].short, 'energy');
-        this.audio.play(a === 'remote' ? 'remote' : 'ability');
-      } else this.audio.play('deny');
-    }
+    // Kemampuan berbasis energi dinonaktifkan: bom kini diisi lewat soal matematika.
   }
 
   /** Bila rata-rata frame lambat selama ±5 detik bermain pada kualitas Tinggi, turunkan otomatis ke mode hemat (tidak disimpan). */
@@ -4716,6 +4723,7 @@ class GameApp {
       if (this.uiT >= 0.033) {                 // HUD DOM diperbarui ~30×/detik (cukup halus, jauh lebih hemat)
         this.uiT = 0;
         this.ui.updateStats(this.players, this.bombs, this.match);
+        this.ui.updateAmmoButtons(this.players, this.online.active ? this.online.me : -1);
         this.ui.updateMath(this.math, this.players, this.abilities, this.bombs);
       }
     }
