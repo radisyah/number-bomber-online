@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>NUMBER BOMBER Online — Math PvP Arena</title>
+<title>BURST DOWN Online — Math PvP Arena</title>
 <style>
 :root{
   --p1:#ff5a3c; --p2:#27c4ff; --gold:#ffc94d; --neon:#7a5cff;
@@ -676,7 +676,7 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
 <div id="howto" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="howto-title">
   <div class="modal-card">
     <h2 id="howto-title">How to Play · Cara Bermain</h2>
-    <p>NUMBER BOMBER adalah game PvP lokal 1 vs 1 di satu perangkat: dua pemain bertarung di arena 3D dengan kamera dari atas, memasang bom, dan memakai matematika sebagai strategi. Pertandingan dimainkan Best of 3.</p>
+    <p>BURST DOWN adalah game PvP lokal 1 vs 1 di satu perangkat: dua pemain bertarung di arena 3D dengan kamera dari atas, memasang bom, dan memakai matematika sebagai strategi. Pertandingan dimainkan Best of 3.</p>
     <h3>Main Online</h3>
     <ul>
       <li><b>Buat Ruangan</b> lalu bagikan kode 5 huruf (atau tombol <b>Salin Tautan</b>) ke temanmu. Teman memilih <b>Gabung</b> dan memasukkan kode. Pembuat ruangan = P1 (host) dan menekan <b>MULAI</b>.</li>
@@ -830,7 +830,7 @@ html.menuopen .ot-zone,html.menuopen .ot-btn{pointer-events:none}
 <!-- Petunjuk layar sempit -->
 <div id="rotate-hint">
   <div>Putar perangkat ke mode landscape</div>
-  <small>NUMBER BOMBER dirancang untuk layar lebar.</small>
+  <small>BURST DOWN dirancang untuk layar lebar.</small>
 </div>
 
 <!-- Error fatal -->
@@ -3895,7 +3895,7 @@ class OnlineController {
     const url = location.origin + location.pathname + '?room=' + n.code + (master ? '&role=master' : ''), btn = master ? this.el.copyM : this.el.copy, label = master ? 'Tautan Room Master' : 'Salin Tautan';
     const done = (ok) => { btn.textContent = ok ? 'Tersalin ✔' : 'Salin manual: ' + url; setTimeout(() => { btn.textContent = label; }, 2200); };
     if (navigator.share && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      navigator.share({ title: 'NUMBER BOMBER', text: 'Duel bom matematika! Kode ruangan: ' + n.code, url: url }).catch(() => { });
+      navigator.share({ title: 'BURST DOWN', text: 'Duel bom matematika! Kode ruangan: ' + n.code, url: url }).catch(() => { });
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => done(true), () => done(false));
